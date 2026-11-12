@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rtswe_eval</name>
+  <version>0.1.0</version>
+  <description>Hidden tests and malloc-guard probes for RT-SWE-Bench.</description>
+  <maintainer email="aloeffle@htwg-konstanz.de">Andreas Loeffler</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- malloc_guard is not a ROS package; it is installed in the image at
+       /opt/malloc_guard and found through CMAKE_PREFIX_PATH. -->
+  <test_depend>ament_cmake_gmock</test_depend>
+  <test_depend>controller_interface</test_depend>
+  <test_depend>hardware_interface</test_depend>
+  <test_depend>rclcpp</test_depend>
+  <test_depend>generate_parameter_library</test_depend>
+  <test_depend>forward_command_controller</test_depend>
+  <test_depend>pid_controller</test_depend>
+  <test_depend>diff_drive_controller</test_depend>
+  <test_depend>omni_wheel_drive_controller</test_depend>
+  <test_depend>mecanum_drive_controller</test_depend>
+  <test_depend>steering_controllers_library</test_depend>
+  <test_depend>admittance_controller</test_depend>
+  <test_depend>joint_trajectory_controller</test_depend>
+  <test_depend>joint_state_broadcaster</test_depend>
+  <test_depend>gpio_controllers</test_depend>
+  <test_depend>ros2_control_test_assets</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

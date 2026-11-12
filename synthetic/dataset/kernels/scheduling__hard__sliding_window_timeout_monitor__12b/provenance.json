@@ -1,0 +1,124 @@
+{
+ "id": "scheduling__hard__sliding_window_timeout_monitor__12b",
+ "idea": {
+  "domain": "scheduling",
+  "level": "hard",
+  "name": "sliding_window_timeout_monitor",
+  "class": "TimeoutMonitor",
+  "summary": "The check_timeout() method evaluates a circular buffer of timestamps to determine if the average inter-arrival time of events exceeds a configurable threshold.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 28,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 28,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 24,
+   "killed": 21,
+   "kill_rate": 0.875,
+   "survivors": [
+    "line 20: true -> false",
+    "line 24: 2 -> 1",
+    "line 26: 0.0 -> 1.0"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 28,
+     "allocating_cycles": 1,
+     "allocs": 1,
+     "bytes": 160,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 28,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference_2.hpp F=0 R=0",
+   "by": "31b",
+   "files": [
+    "reference_2.hpp"
+   ]
+  },
+  {
+   "round": 2,
+   "after": "G2: kill rate 0.79 of 24 compiling mutants",
+   "by": "12b",
+   "files": [
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 2,
+ "test_include_normalized": false
+}

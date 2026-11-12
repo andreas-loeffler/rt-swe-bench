@@ -1,0 +1,102 @@
+{
+ "id": "messaging__medium__fixed_size_ring_buffer__12b",
+ "idea": {
+  "domain": "messaging",
+  "level": "medium",
+  "name": "fixed_size_ring_buffer",
+  "class": "FixedRingBuffer",
+  "summary": "Provides thread-safe push and pop operations on a pre-allocated circular buffer for sensor data.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1037,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1037,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 17,
+   "compiled": 17,
+   "killed": 17,
+   "kill_rate": 1.0,
+   "survivors": []
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1037,
+     "allocating_cycles": 5,
+     "allocs": 5,
+     "bytes": 124,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 5
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1037,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": false
+}

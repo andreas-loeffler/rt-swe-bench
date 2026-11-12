@@ -1,0 +1,14 @@
+50 of 50 update() cycles allocated, 1350 allocations, 93000 bytes in total.
+  150 allocations (9600 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:226)
+  50 allocations (4800 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:229)
+  50 allocations (6400 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:235)
+  50 allocations (3600 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:238)
+  50 allocations (19200 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:240)
+  50 allocations (3600 bytes) at Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate (SVD/BDCSVD.h:241)
+  50 allocations (4800 bytes) at Eigen::ColPivHouseholderQR<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::ColPivHouseholderQR (QR/ColPivHouseholderQR.h:103)
+  50 allocations (1200 bytes) at Eigen::ColPivHouseholderQR<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::ColPivHouseholderQR (QR/ColPivHouseholderQR.h:104)
+Backtrace of the first allocation site:
+  #3 Eigen::BDCSVD<Eigen::Matrix<double, -1, -1, 0, -1, -1> >::allocate(long, long, unsigned int) at /usr/include/eigen3/Eigen/src/SVD/BDCSVD.h:226
+  #4 omni_wheel_drive_controller::Odometry::compute_robot_velocity(std::vector<double, std::allocator<double> > const&) const at /ws/src/ros2_controllers/omni_wheel_drive_controller/src/odometry.cpp:101 (discriminator 2)
+  #5 omni_wheel_drive_controller::Odometry::updateFromVel(std::vector<double, std::allocator<double> > const&, rclcpp::Time const&) at /ws/src/ros2_controllers/omni_wheel_drive_controller/src/odometry.cpp:66
+  #6 omni_wheel_drive_controller::OmniWheelDriveController::update_and_write_commands(rclcpp::Time const&, rclcpp::Duration const&) at /ws/src/ros2_controllers/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp:339

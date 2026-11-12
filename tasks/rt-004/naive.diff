@@ -1,0 +1,12 @@
+diff --git a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+index 23925c77..fef1ec1f 100644
+--- a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
++++ b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+@@ -367,6 +367,7 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+       transform_.transform.rotation.z = orientation.z();
+       transform_.transform.rotation.w = orientation.w();
+       tf2_msgs::msg::TFMessage odometry_transform_message;
++      odometry_transform_message.transforms.reserve(1);
+       odometry_transform_message.transforms.push_back(transform_);
+       realtime_odometry_transform_publisher_->try_publish(odometry_transform_message);
+     }

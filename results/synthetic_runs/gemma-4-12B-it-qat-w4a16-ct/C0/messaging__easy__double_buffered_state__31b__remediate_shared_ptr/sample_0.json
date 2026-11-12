@@ -1,0 +1,91 @@
+{
+ "id": "messaging__easy__double_buffered_state__31b__remediate_shared_ptr",
+ "kernel": "messaging__easy__double_buffered_state__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 4000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <algorithm>\n#include <cstddef>\n#include <memory>\n\nclass DoubleBufferedState {\npublic:\n    void configure(size_t size) {\n        m_size = size;\n        buffer_a = std::make_unique<std::vector<double>>(size, 0.0);\n        buffer_b = std::make_unique<std::vector<double>>(size, 0.0);\n        m_write_idx = 0;\n    }\n\n    void write(const double* data) {\n        if (m_write_idx == 0) {\n            std::copy(data, data + m_size, buffer_a->begin());\n        } else {\n            std::copy(data, data + m_size, buffer_b->begin());\n        }\n    }\n\n    void swap() {\n        m_write_idx = 1 - m_write_idx;\n    }\n\n    void read(double* output) const {\n        const std::vector<double>& read_buf = (m_write_idx == 0) ? *buffer_b : *buffer_a;\n        std::copy(read_buf.begin(), read_buf.end(), output);\n    }\n\nprivate:\n    std::unique_ptr<std::vector<double>> buffer_a;\n    std::unique_ptr<std::vector<double>> buffer_b;\n    size_t m_size = 0;\n    int m_write_idx = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 6172,
+  "completion_tokens": 376
+ },
+ "started": 1793821147.6161585,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 994.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# DoubleBufferedState\n     2\t\n     3\tThe `DoubleBufferedState` kernel provides a mechanism to exchange a state vector between a producer (writer) and a consumer (reader) ensuring that the reader always sees a consistent snapshot of the state without blocking the writer.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t size)`\n     8\t- Precondition: Called once before any real-time calls.\n     9\t- Behavior: Allocates internal buffers to hold two copies of a state vector of the specified `size`.\n    10\t\n    11\t### `void write(const double* data)`\n    12\t- Real-time constraint: Must not allocate, throw, lock, or perform I/O.\n    13\t- Behavior: Copies the provided `data` into the current write-buffer.\n    14\t\n    15\t### `void swap()`\n    16\t- Real-time constraint: Must not allocate, throw, lock, or perform I/O.\n    17\t- Behavior: Swaps the roles of the read-buffer and write-buffer. The last completed `write` becomes available to the reader.\n    18\t\n    19\t### `void read(double* output)`\n    20\t- Real-time constraint: Must not allocate, throw, lock, or perform I/O.\n    21\t- Behavior: Copies the current read-buffer into the `output` array.\n    22\t\n    23\t## Invariants\n    24\t- The reader always accesses a stable snapshot.\n    25\t- Data written after a `swap()` is not visible to `read()` until the next `swap()`."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-39 of 39)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <algorithm>\n     4\t#include <cstddef>\n     5\t#include <memory>\n     6\t\n     7\tclass DoubleBufferedState {\n     8\tpublic:\n     9\t    void configure(size_t size) {\n    10\t        m_size = size;\n    11\t        buffer_a = std::make_unique<std::vector<double>>(size, 0.0);\n    12\t        buffer_b = std::make_unique<std::vector<double>>(size, 0.0);\n    13\t        m_write_idx = 0;\n    14\t    }\n    15\t\n    16\t    void write(const double* data) {\n    17\t        auto write_buf = std::make_unique<std::vector<double>>(data, data + m_size);\n    18\t        if (m_write_idx == 0) {\n    19\t            *buffer_a = std::move(*write_buf);\n    20\t        } else {\n    21\t            *buffer_b = std::move(*write_buf);\n    22\t        }\n    23\t    }\n    24\t\n    25\t    void swap() {\n    26\t        m_write_idx = 1 - m_write_idx;\n    27\t    }\n    28\t\n    29\t    void read(double* output) const {\n    30\t        const std::vector<double>& read_buf = (m_write_idx == 0) ? *buffer_b : *buffer_a;\n    31\t        std::copy(read_buf.begin(), read_buf.end(), output);\n    32\t    }\n    33\t\n    34\tprivate:\n    35\t    std::unique_ptr<std::vector<double>> buffer_a;\n    36\t    std::unique_ptr<std::vector<double>> buffer_b;\n    37\t    size_t m_size = 0;\n    38\t    int m_write_idx = 0;\n    39\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe current implementation uses `std::make_unique<std::vector<double>>` inside `write`, which performs a heap allocation every time a write occurs. To make this allocation-free while maintaining the double-buffering logic, I need to pre-allocate the buffers in `configure` and use `std::copy` to move data into them in `write`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void write(const double* data) {\\n        auto write_buf = std::make_unique<std::vector<double>>(data, data + m_size);\\n        if (m_write_idx == 0) {\\n            *buffer_a = std::move(*write_buf);\\n        } else {\\n            *buffer_b = std::move(*write_buf);\\n        }\\n    }\", \"new\": \"    void write(const double* data) {\\n        if (m_write_idx == 0) {\\n            std::copy(data, data + m_size, buffer_a->begin());\\n        } else {\\n            std::copy(data, data + m_size, buffer_b->begin());\\n        }\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

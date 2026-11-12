@@ -1,0 +1,17 @@
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+index 477c7334..6eb6c4c8 100644
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -177,8 +177,10 @@ controller_interface::return_type DiffDriveController::update_and_write_commands
+ 
+   limiter_linear_->limit(linear_command, last_linear, second_to_last_linear, period.seconds());
+   limiter_angular_->limit(angular_command, last_angular, second_to_last_angular, period.seconds());
+-  previous_two_commands_.pop();
+-  previous_two_commands_.push({{linear_command, angular_command}});
++  // The history always holds two entries. Shift them in place: pop() + push()
++  // on the std::deque behind std::queue allocates a new block every ~32 cycles.
++  previous_two_commands_.front() = previous_two_commands_.back();
++  previous_two_commands_.back() = {{linear_command, angular_command}};
+ 
+   // Apply (possibly new) multipliers:
+   const double wheel_separation = params_.wheel_separation_multiplier * params_.wheel_separation;

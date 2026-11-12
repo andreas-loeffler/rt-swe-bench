@@ -1,0 +1,91 @@
+{
+ "id": "messaging__medium__fixed_capacity_command_queue__31b__remediate_copy_by_value",
+ "kernel": "messaging__medium__fixed_capacity_command_queue__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <atomic>\n#include <vector>\n#include <cstdint>\n#include <initializer_list>\n\nclass FixedCapacityCommandQueue {\n    struct Packet {\n        uint32_t id;\n        float value;\n    };\n\n    Packet* buffer = nullptr;\n    size_t capacity_mask = 0;\n    std::atomic<size_t> head{0};\n    std::atomic<size_t> tail{0};\n\n    Packet create_packet(uint32_t id, float value) {\n        return {id, value};\n    }\n\n    void write_to_buffer(size_t index, Packet p) {\n        buffer[index] = p;\n    }\n\npublic:\n    ~FixedCapacityCommandQueue() {\n        delete[] buffer;\n    }\n\n    void configure(size_t capacity) {\n        size_t real_cap = 1;\n        while (real_cap < capacity) real_cap <<= 1;\n        \n        delete[] buffer;\n        buffer = new Packet[real_cap];\n        capacity_mask = real_cap - 1;\n        head.store(0, std::memory_order_relaxed);\n        tail.store(0, std::memory_order_relaxed);\n    }\n\n    bool push(uint32_t id, float value) {\n        const size_t t = tail.load(std::memory_order_relaxed);\n        const size_t h = head.load(std::memory_order_acquire);\n\n        if ((t - h) >= (capacity_mask + 1)) {\n            return false;\n        }\n\n        write_to_buffer(t & capacity_mask, create_packet(id, value));\n        \n        tail.store(t + 1, std::memory_order_release);\n        return true;\n    }\n\n    bool pop(uint32_t& id, float& value) {\n        const size_t h = head.load(std::memory_order_relaxed);\n        const size_t t = tail.load(std::memory_order_acquire);\n\n        if (h == t) {\n            return false;\n        }\n\n        Packet p = buffer[h & capacity_mask];\n        id = p.id;\n        value = p.value;\n        head.store(h + 1, std::memory_order_release);\n        return true;\n    }\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7408,
+  "completion_tokens": 316
+ },
+ "started": 1793817899.6358624,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 925.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to examine the specification and the current implementation to identify where heap allocations are occurring in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-27 of 27)\n     1\t# FixedCapacityCommandQueue\n     2\t\n     3\tThe `FixedCapacityCommandQueue` manages a fixed-capacity, lock-free Single-Producer Single-Consumer (SPSC) FIFO queue of command packets. It is designed for domain messaging between a non-real-time thread (producer) and a real-time thread (consumer), or between two real-time threads.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\t- Called once before real-time execution.\n     9\t- Reserves memory for the queue to hold up to `capacity` packets.\n    10\t- Precondition: Must be called before `push` or `pop`.\n    11\t\n    12\t### `bool push(uint32_t id, float value)`\n    13\t- Adds a command packet (ID and value) to the tail of the queue.\n    14\t- Returns `true` if the packet was successfully queued.\n    15\t- Returns `false` if the queue is full (saturation handling).\n    16\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    17\t\n    18\t### `bool pop(uint32_t& id, float& value)`\n    19\t- Removes the command packet from the head of the queue and populates the output parameters.\n    20\t- Returns `true` if a packet was retrieved.\n    21\t- Returns `false` if the queue is empty.\n    22\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    23\t\n    24\t## Behavior\n    25\t- The queue operates as a FIFO.\n    26\t- If the queue is full, `push` fails immediately without blocking or overwriting existing data.\n    27\t- Memory is managed as a ring buffer to handle wrap-around logic."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I will examine the current implementation of `kernel.hpp` to find the heap allocations in `push` and `pop`.```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-71 of 71)\n     1\t#pragma once\n     2\t#include <atomic>\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t#include <initializer_list>\n     6\t\n     7\tclass FixedCapacityCommandQueue {\n     8\t    struct Packet {\n     9\t        uint32_t id;\n    10\t        float value;\n    11\t    };\n    12\t\n    13\t    Packet* buffer = nullptr;\n    14\t    size_t capacity_mask = 0;\n    15\t    std::atomic<size_t> head{0};\n    16\t    std::atomic<size_t> tail{0};\n    17\t\n    18\t    Packet create_packet(uint32_t id, float value) {\n    19\t        return {id, value};\n    20\t    }\n    21\t\n    22\t    void write_to_buffer(size_t index, Packet p) {\n    23\t        buffer[index] = p;\n    24\t    }\n    25\t\n    26\tpublic:\n    27\t    ~FixedCapacityCommandQueue() {\n    28\t        delete[] buffer;\n    29\t    }\n    30\t\n    31\t    void configure(size_t capacity) {\n    32\t        size_t real_cap = 1;\n    33\t        while (real_cap < capacity) real_cap <<= 1;\n    34\t        \n    35\t        delete[] buffer;\n    36\t        buffer = new Packet[real_cap];\n    37\t        capacity_mask = real_cap - 1;\n    38\t        head.store(0, std::memory_order_relaxed);\n    39\t        tail.store(0, std::memory_order_relaxed);\n    40\t    }\n    41\t\n    42\t    bool push(uint32_t id, float value) {\n    43\t        const size_t t = tail.load(std::memory_order_relaxed);\n    44\t        const size_t h = head.load(std::memory_order_acquire);\n    45\t\n    46\t        if ((t - h) >= (capacity_mask + 1)) {\n    47\t            return false;\n    48\t        }\n    49\t\n    50\t        std::vector<Packet> packet_wrapper = { create_packet(id, value) };\n    51\t        write_to_buffer(t & capacity_mask, packet_wrapper[0]);\n    52\t        \n    53\t        tail.store(t + 1, std::memory_order_release);\n    54\t        return true;\n    55\t    }\n    56\t\n    57\t    bool pop(uint32_t& id, float& value) {\n    58\t        const size_t h = head.load(std::memory_order_relaxed);\n    59\t        const size_t t = tail.load(std::memory_order_acquire);\n    60\t\n    61\t        if (h == t) {\n    62\t            return false;\n    63\t        }\n    64\t\n    65\t        Packet p = buffer[h & capacity_mask];\n    66\t        id = p.id;\n    67\t        value = p.value;\n    68\t        head.store(h + 1, std::memory_order_release);\n    69\t        return true;\n    70\t    }\n    71\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `push` method contains a heap allocation: `std::vector<Packet> packet_wrapper = { create_packet(id, value) };`. This is completely unnecessary and violates the real-time constraint. I should replace it with a direct call to `write_to_buffer` or simply assign the values.\n\nI will remove the `std::vector` allocation in `push`.```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::vector<Packet> packet_wrapper = { create_packet(id, value) };\\n        write_to_buffer(t & capacity_mask, packet_wrapper[0]);\", \"new\": \"        write_to_buffer(t & capacity_mask, create_packet(id, value));\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

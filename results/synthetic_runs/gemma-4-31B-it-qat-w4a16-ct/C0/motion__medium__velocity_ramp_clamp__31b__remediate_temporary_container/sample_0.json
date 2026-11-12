@@ -1,0 +1,99 @@
+{
+ "id": "motion__medium__velocity_ramp_clamp__31b__remediate_temporary_container",
+ "kernel": "motion__medium__velocity_ramp_clamp__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "motion",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <algorithm>\n#include <cmath>\n#include <vector>\n\nclass VelocityRampClamp {\npublic:\n    void configure(double max_vel, double max_accel, double dt) {\n        m_max_vel = max_vel;\n        m_max_accel = max_accel;\n        m_dt = dt;\n        m_current_vel = 0.0;\n    }\n\n    double step(double target_vel) {\n        double clamped_target = std::clamp(target_vel, -m_max_vel, m_max_vel);\n        \n        double diff = calculate_clamped_diff(clamped_target);\n\n        m_current_vel += diff;\n        return m_current_vel;\n    }\n\n    double get_velocity() const {\n        return m_current_vel;\n    }\n\nprivate:\n    double calculate_clamped_diff(double clamped_target) {\n        double diff = clamped_target - m_current_vel;\n        double max_change = m_max_accel * m_dt;\n\n        if (diff > max_change) {\n            return max_change;\n        } else if (diff < -max_change) {\n            return -max_change;\n        }\n        \n        return diff;\n    }\n\n    double m_max_vel = 0.0;\n    double m_max_accel = 0.0;\n    double m_dt = 0.0;\n    double m_current_vel = 0.0;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 7266,
+  "completion_tokens": 436
+ },
+ "started": 1793815666.0205235,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 749.6,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "call:view {\"path\": \"spec.md\"}"
+  },
+  {
+   "role": "user",
+   "content": "error: no action found. Reply with one JSON action in a ```json block."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the specification to identify the real-time methods and the memory allocation constraints.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# VelocityRampClamp\n     2\t\n     3\tThe `VelocityRampClamp` kernel implements a first-order velocity ramp with hard saturation limits. It smoothly transitions the current velocity toward a target setpoint while ensuring the velocity never exceeds defined bounds and the rate of change (acceleration) is capped.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(double max_vel, double max_accel, double dt)`\n     8\tInitializes the kernel parameters.\n     9\t- `max_vel`: The absolute maximum allowable velocity (saturates at $\\pm \\text{max\\_vel}$).\n    10\t- `max_accel`: The maximum allowable change in velocity per step (ramp rate).\n    11\t- `dt`: The constant time step for the ramp calculation.\n    12\t- **Preconditions**: `max_vel > 0`, `max_accel > 0`, `dt > 0`.\n    13\t\n    14\t### `double step(double target_vel)`\n    15\tUpdates the internal state and returns the new current velocity.\n    16\t- **Behavior**:\n    17\t    1. Clamps the `target_vel` to the range `[-max_vel, max_vel]`.\n    18\t    2. Calculates the difference between the clamped target and the current velocity.\n    19\t    3. Limits this difference to a maximum of `max_accel * dt` (maintaining the sign).\n    20\t    4. Updates the current velocity by adding this limited delta.\n    21\t    5. Returns the resulting velocity.\n    22\t- **Real-time Constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    23\t\n    24\t### `double get_velocity() const`\n    25\tReturns the current velocity without modifying the state.\n    26\t- **Real-time Constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the current implementation of `kernel.hpp` to identify where heap allocations are occurring in the `step` and `get_velocity` methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-49 of 49)\n     1\t#pragma once\n     2\t\n     3\t#include <algorithm>\n     4\t#include <cmath>\n     5\t#include <vector>\n     6\t\n     7\tclass VelocityRampClamp {\n     8\tpublic:\n     9\t    void configure(double max_vel, double max_accel, double dt) {\n    10\t        m_max_vel = max_vel;\n    11\t        m_max_accel = max_accel;\n    12\t        m_dt = dt;\n    13\t        m_current_vel = 0.0;\n    14\t    }\n    15\t\n    16\t    double step(double target_vel) {\n    17\t        double clamped_target = std::clamp(target_vel, -m_max_vel, m_max_vel);\n    18\t        \n    19\t        double diff = calculate_clamped_diff(clamped_target);\n    20\t\n    21\t        m_current_vel += diff;\n    22\t        return m_current_vel;\n    23\t    }\n    24\t\n    25\t    double get_velocity() const {\n    26\t        return m_current_vel;\n    27\t    }\n    28\t\n    29\tprivate:\n    30\t    double calculate_clamped_diff(double clamped_target) {\n    31\t        double diff = clamped_target - m_current_vel;\n    32\t        double max_change = m_max_accel * m_dt;\n    33\t\n    34\t        std::vector<double> limits = {-max_change, max_change};\n    35\t        \n    36\t        if (diff > limits[1]) {\n    37\t            return limits[1];\n    38\t        } else if (diff < limits[0]) {\n    39\t            return limits[0];\n    40\t        }\n    41\t        \n    42\t        return diff;\n    43\t    }\n    44\t\n    45\t    double m_max_vel = 0.0;\n    46\t    double m_max_accel = 0.0;\n    47\t    double m_dt = 0.0;\n    48\t    double m_current_vel = 0.0;\n    49\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `calculate_clamped_diff` method, which is called by `step`, allocates a `std::vector` on the heap in every call. I will replace the vector with simple scalar comparisons to eliminate the allocation and satisfy the real-time constraint.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::vector<double> limits = {-max_change, max_change};\\n        \\n        if (diff > limits[1]) {\\n            return limits[1];\\n        } else if (diff < limits[0]) {\\n            return limits[0];\\n        }\", \"new\": \"        if (diff > max_change) {\\n            return max_change;\\n        } else if (diff < -max_change) {\\n            return -max_change;\\n        }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the heap-allocating `std::vector` from the internal calculation method. Now I need to verify that the implementation still passes the functional tests.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have successfully removed the heap allocation from the real-time methods. The `std::vector` in `calculate_clamped_diff` was replaced with simple scalar comparisons, ensuring that `step` and `get_velocity` now satisfy the real-time constraints specified in `spec.md`.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

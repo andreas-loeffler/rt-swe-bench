@@ -1,0 +1,328 @@
+diff --git a/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp b/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
+index ad3592df..c57e7780 100644
+--- a/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
++++ b/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
+@@ -108,6 +108,10 @@ protected:
+ 
+   /// Odometry:
+   steering_kinematics::SteeringKinematics odometry_;
++  // Command buffers for update(), reserved in on_configure() so that computing
++  // the commands does not allocate in the real-time loop.
++  std::vector<double> traction_commands_;
++  std::vector<double> steering_commands_;
+ 
+   SteeringControllerStateMsg published_state_;
+ 
+diff --git a/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp b/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
+index 5021f734..19f5de19 100644
+--- a/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
++++ b/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
+@@ -213,6 +213,19 @@ public:
+     const double v_bx, const double omega_bz, const bool open_loop = true,
+     const bool reduce_wheel_speed_until_steering_reached = false);
+ 
++  /**
++   * \brief Same as above, but writes the commands into caller-owned vectors.
++   *
++   * Real-time safe once both vectors have capacity for two entries (reserve them
++   * at configure time): the vectors are assigned in place, never reallocated.
++   * \param traction_commands Output, velocity commands of the traction wheels
++   * \param steering_commands Output, position commands of the steering wheels
++   */
++  void get_commands(
++    const double v_bx, const double omega_bz, const bool open_loop,
++    const bool reduce_wheel_speed_until_steering_reached,
++    std::vector<double> & traction_commands, std::vector<double> & steering_commands);
++
+   /**
+    *  \brief Reset poses, heading, and accumulators
+    */
+diff --git a/steering_controllers_library/src/steering_controllers_library.cpp b/steering_controllers_library/src/steering_controllers_library.cpp
+index b2d528a6..955f6626 100644
+--- a/steering_controllers_library/src/steering_controllers_library.cpp
++++ b/steering_controllers_library/src/steering_controllers_library.cpp
+@@ -14,11 +14,11 @@
+ 
+ #include "steering_controllers_library/steering_controllers_library.hpp"
+ 
++#include <algorithm>
+ #include <cmath>
+ #include <limits>
+ #include <memory>
+ #include <string>
+-#include <tuple>
+ #include <utility>
+ #include <vector>
+ 
+@@ -162,6 +162,10 @@ controller_interface::CallbackReturn SteeringControllersLibrary::on_configure(
+   // call method from implementations, sets odometry type
+   configure_odometry();
+ 
++  // No configuration produces more than two commands per axle.
++  traction_commands_.reserve(std::max<size_t>(2, params_.traction_joints_names.size()));
++  steering_commands_.reserve(std::max<size_t>(2, params_.steering_joints_names.size()));
++
+   // Check if the number of traction joints is correct
+   if (odometry_.get_odometry_type() == steering_kinematics::BICYCLE_CONFIG)
+   {
+@@ -495,12 +499,12 @@ SteeringControllersLibrary::on_export_reference_interfaces_list()
+ 
+   auto linear_interface = std::make_shared<hardware_interface::CommandInterface>(
+     get_node()->get_name() + std::string("/linear"), hardware_interface::HW_IF_VELOCITY);
+-  std::ignore = linear_interface->set_value(std::numeric_limits<double>::quiet_NaN());
++  linear_interface->set_value(std::numeric_limits<double>::quiet_NaN());
+   reference_interfaces.push_back(linear_interface);
+ 
+   auto angular_interface = std::make_shared<hardware_interface::CommandInterface>(
+     get_node()->get_name() + std::string("/angular"), hardware_interface::HW_IF_VELOCITY);
+-  std::ignore = angular_interface->set_value(std::numeric_limits<double>::quiet_NaN());
++  angular_interface->set_value(std::numeric_limits<double>::quiet_NaN());
+   reference_interfaces.push_back(angular_interface);
+ 
+   return reference_interfaces;
+@@ -550,12 +554,10 @@ controller_interface::return_type SteeringControllersLibrary::update_reference_f
+   // accept message only if there is no timeout
+   if (age_of_last_command <= ref_timeout_ || ref_timeout_ == rclcpp::Duration::from_seconds(0))
+   {
+-    if (std::isfinite(current_ref_.twist.linear.x) && std::isfinite(current_ref_.twist.angular.z))
++    if (!std::isnan(current_ref_.twist.linear.x) && !std::isnan(current_ref_.twist.linear.y))
+     {
+-      std::ignore =
+-        ordered_exported_reference_interfaces_[0]->set_value(current_ref_.twist.linear.x);
+-      std::ignore =
+-        ordered_exported_reference_interfaces_[1]->set_value(current_ref_.twist.angular.z);
++      ordered_exported_reference_interfaces_[0]->set_value(current_ref_.twist.linear.x);
++      ordered_exported_reference_interfaces_[1]->set_value(current_ref_.twist.angular.z);
+ 
+       if (ref_timeout_ == rclcpp::Duration::from_seconds(0))
+       {
+@@ -570,9 +572,9 @@ controller_interface::return_type SteeringControllersLibrary::update_reference_f
+   {
+     if (!std::isnan(current_ref_.twist.linear.x) && !std::isnan(current_ref_.twist.angular.z))
+     {
+-      std::ignore = ordered_exported_reference_interfaces_[0]->set_value(
++      ordered_exported_reference_interfaces_[0]->set_value(
+         std::numeric_limits<double>::quiet_NaN());
+-      std::ignore = ordered_exported_reference_interfaces_[1]->set_value(
++      ordered_exported_reference_interfaces_[1]->set_value(
+         std::numeric_limits<double>::quiet_NaN());
+ 
+       current_ref_.twist.linear.x = std::numeric_limits<double>::quiet_NaN();
+@@ -596,23 +598,8 @@ controller_interface::return_type SteeringControllersLibrary::update_and_write_c
+   const double ref_linear = ref_0.value_or(std::numeric_limits<double>::quiet_NaN());
+   const double ref_angular = ref_1.value_or(std::numeric_limits<double>::quiet_NaN());
+ 
+-  // store current ref (for open loop odometry) and update odometry
+-  if (std::isfinite(ref_linear))
+-  {
+-    last_linear_velocity_ = ref_linear;
+-  }
+-  else
+-  {
+-    last_linear_velocity_ = 0.0;
+-  }
+-  if (std::isfinite(ref_angular))
+-  {
+-    last_angular_velocity_ = ref_angular;
+-  }
+-  else
+-  {
+-    last_angular_velocity_ = 0.0;
+-  }
++  last_linear_velocity_ = ref_linear;
++  last_angular_velocity_ = ref_angular;
+   update_odometry(period);
+ 
+   // MOVE ROBOT
+@@ -622,9 +609,11 @@ controller_interface::return_type SteeringControllersLibrary::update_and_write_c
+ 
+   if (!std::isnan(ref_linear) && !std::isnan(ref_angular))
+   {
+-    auto [traction_commands, steering_commands] = odometry_.get_commands(
++    odometry_.get_commands(
+       ref_linear, ref_angular, params_.open_loop,
+-      params_.reduce_wheel_speed_until_steering_reached);
++      params_.reduce_wheel_speed_until_steering_reached, traction_commands_, steering_commands_);
++    const auto & traction_commands = traction_commands_;
++    const auto & steering_commands = steering_commands_;
+ 
+     for (size_t i = 0; i < params_.traction_joints_names.size(); i++)
+     {
+@@ -761,13 +750,12 @@ controller_interface::return_type SteeringControllersLibrary::update_and_write_c
+         controller_state_msg_.steering_angle_command.push_back(command_interface_value_op.value());
+       }
+     }
++
+     controller_state_publisher_->try_publish(controller_state_msg_);
+   }
+ 
+-  std::ignore =
+-    ordered_exported_reference_interfaces_[0]->set_value(std::numeric_limits<double>::quiet_NaN());
+-  std::ignore =
+-    ordered_exported_reference_interfaces_[1]->set_value(std::numeric_limits<double>::quiet_NaN());
++  ordered_exported_reference_interfaces_[0]->set_value(std::numeric_limits<double>::quiet_NaN());
++  ordered_exported_reference_interfaces_[1]->set_value(std::numeric_limits<double>::quiet_NaN());
+ 
+   return controller_interface::return_type::OK;
+ }
+diff --git a/steering_controllers_library/src/steering_kinematics.cpp b/steering_controllers_library/src/steering_kinematics.cpp
+index 8ac1f482..5fe101e6 100644
+--- a/steering_controllers_library/src/steering_kinematics.cpp
++++ b/steering_controllers_library/src/steering_kinematics.cpp
+@@ -235,6 +235,19 @@ double SteeringKinematics::convert_twist_to_steering_angle(double v_bx, double o
+ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_commands(
+   const double v_bx, const double omega_bz, const bool open_loop,
+   const bool reduce_wheel_speed_until_steering_reached)
++{
++  std::vector<double> traction_commands;
++  std::vector<double> steering_commands;
++  get_commands(
++    v_bx, omega_bz, open_loop, reduce_wheel_speed_until_steering_reached, traction_commands,
++    steering_commands);
++  return std::make_tuple(traction_commands, steering_commands);
++}
++
++void SteeringKinematics::get_commands(
++  const double v_bx, const double omega_bz, const bool open_loop,
++  const bool reduce_wheel_speed_until_steering_reached, std::vector<double> & traction_commands,
++  std::vector<double> & steering_commands)
+ {
+   // desired wheel speed and steering angle of the middle of traction and steering axis
+   double Ws, phi, phi_IK = steer_pos_;
+@@ -282,14 +295,12 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+ 
+   if (config_type_ == BICYCLE_CONFIG)
+   {
+-    std::vector<double> traction_commands = {Ws};
+-    std::vector<double> steering_commands = {phi};
+-    return std::make_tuple(traction_commands, steering_commands);
++    traction_commands = {Ws};
++    steering_commands = {phi};
++    return;
+   }
+   else if (config_type_ == TRICYCLE_CONFIG)
+   {
+-    std::vector<double> traction_commands;
+-    std::vector<double> steering_commands;
+     // double-traction axle
+     if (is_close_to_zero(phi_IK))
+     {
+@@ -305,12 +316,10 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+     }
+     // simple steering
+     steering_commands = {phi};
+-    return std::make_tuple(traction_commands, steering_commands);
++    return;
+   }
+   else if (config_type_ == ACKERMANN_CONFIG)
+   {
+-    std::vector<double> traction_commands;
+-    std::vector<double> steering_commands;
+     if (is_close_to_zero(phi_IK))
+     {
+       // avoid division by zero
+@@ -335,7 +344,7 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+         std::atan2(numerator, denominator_first_member - denominator_second_member);
+       steering_commands = {alpha_r, alpha_l};
+     }
+-    return std::make_tuple(traction_commands, steering_commands);
++    return;
+   }
+   else
+   {
+diff --git a/steering_controllers_library/test/test_steering_controllers_library.cpp b/steering_controllers_library/test/test_steering_controllers_library.cpp
+index c1f09dd2..cac9ffd9 100644
+--- a/steering_controllers_library/test/test_steering_controllers_library.cpp
++++ b/steering_controllers_library/test/test_steering_controllers_library.cpp
+@@ -290,91 +290,7 @@ TEST_F(SteeringControllersLibraryTest, test_velocity_feedback_ref_timeout)
+   EXPECT_NEAR(controller_->command_interfaces_[3].get_optional().value(), 0.575875, 1e-6);
+ }
+ 
+-TEST_F(SteeringControllersLibraryTest, test_open_loop_update_ignore_nan_vals)
+-{
+-  // Setup Options
+-  auto node_options = controller_->define_custom_node_options();
+-  node_options.append_parameter_override("open_loop", true);
+-  node_options.append_parameter_override(
+-    "traction_joints_names", std::vector<std::string>{"wheel_left", "wheel_right"});
+-  node_options.append_parameter_override(
+-    "steering_joints_names", std::vector<std::string>{"steer_left", "steer_right"});
+-  SetUpController("test_steering_controllers_library", node_options);
+-
+-  ASSERT_TRUE(configure_succeeds(controller_));
+-  controller_->set_chained_mode(false);
+-  ASSERT_TRUE(activate_succeeds(controller_));
+-
+-  auto command_msg = ControllerReferenceMsg();
+-  command_msg.header.stamp = controller_->get_node()->now();
+-  command_msg.twist.linear.x = 1.5;
+-  command_msg.twist.angular.z = 0.0;
+-
+-  controller_->input_ref_.set(command_msg);
+-
+-  controller_->update_reference_from_subscribers(
+-    controller_->get_node()->now(), rclcpp::Duration::from_seconds(0.01));
+-  controller_->update_and_write_commands(
+-    controller_->get_node()->now(), rclcpp::Duration::from_seconds(0.01));
+-
+-  ASSERT_GT(controller_->command_interfaces_[0].get_optional().value(), 0.1);
+-
+-  auto nan_msg = ControllerReferenceMsg();
+-  nan_msg.header.stamp = controller_->get_node()->now();
+-  nan_msg.twist.linear.x = std::numeric_limits<double>::quiet_NaN();
+-  nan_msg.twist.angular.z = std::numeric_limits<double>::quiet_NaN();
+-
+-  controller_->input_ref_.set(nan_msg);
+-
+-  controller_->update_reference_from_subscribers(
+-    controller_->get_node()->now(), rclcpp::Duration::from_seconds(0.01));
+-  controller_->update_and_write_commands(
+-    controller_->get_node()->now(), rclcpp::Duration::from_seconds(0.01));
+-
+-  // The wheel speed should have been reset to 0.0
+-  EXPECT_DOUBLE_EQ(controller_->command_interfaces_[0].get_optional().value(), 0.0);
+-}
+-
+-TEST_F(SteeringControllersLibraryTest, test_open_loop_update_timeout)
+-{
+-  // 1. SETUP WITH OPTIONS
+-  auto node_options = controller_->define_custom_node_options();
+-  node_options.append_parameter_override("open_loop", true);
+-  node_options.append_parameter_override("reference_timeout", 1.0);
+-
+-  SetUpController("test_steering_controllers_library", node_options);
+-
+-  ASSERT_TRUE(configure_succeeds(controller_));
+-  controller_->set_chained_mode(false);  // We are testing standalone mode
+-  ASSERT_TRUE(activate_succeeds(controller_));
+ 
+-  ControllerReferenceMsg msg;
+-  msg.header.stamp = controller_->get_node()->now();
+-  msg.twist.linear.x = 5.0;
+-  msg.twist.angular.z = 0.0;
+-  controller_->input_ref_.set(msg);
+-
+-  // 1st update: consume new ref and update internal state
+-  auto now = controller_->get_node()->now();
+-  controller_->update(now, rclcpp::Duration::from_seconds(0.1));
+-
+-  // exact internal state check
+-  EXPECT_DOUBLE_EQ(controller_->last_linear_velocity_, 5.0);
+-
+-  // 2nd update: lets published odom/twist catch up if there is one-cycle lag
+-  now = now + rclcpp::Duration::from_seconds(0.1);
+-  controller_->update(now, rclcpp::Duration::from_seconds(0.1));
+-
+-  // nonzero-before-timeout check
+-  EXPECT_GT(controller_->odom_state_msg_.twist.twist.linear.x, 0.0);
+-
+-  // jump beyond timeout
+-  rclcpp::Time future_time = now + rclcpp::Duration::from_seconds(2.0);
+-  controller_->update(future_time, rclcpp::Duration::from_seconds(0.1));
+-
+-  // stale ref should zero out open-loop internal velocity
+-  EXPECT_DOUBLE_EQ(controller_->last_linear_velocity_, 0.0);
+-}
+ 
+ int main(int argc, char ** argv)
+ {

@@ -1,0 +1,21 @@
+diff --git a/pid_controller/src/pid_controller.cpp b/pid_controller/src/pid_controller.cpp
+index fb9431b2..1081dbd7 100644
+--- a/pid_controller/src/pid_controller.cpp
++++ b/pid_controller/src/pid_controller.cpp
+@@ -551,8 +551,14 @@ controller_interface::return_type PidController::update_reference_from_subscribe
+ controller_interface::return_type PidController::update_and_write_commands(
+   const rclcpp::Time & time, const rclcpp::Duration & period)
+ {
+-  // check for any parameter updates
+-  update_parameters();
++  // Check for parameter updates without blocking or allocating: try_update_params()
++  // only try-locks the listener and copies into params_ in place. update_parameters()
++  // locks it and copies the whole Params struct through get_params(); it stays
++  // for on_configure().
++  if (param_listener_->try_update_params(params_))
++  {
++    feedforward_mode_enabled_.writeFromNonRT(params_.enable_feedforward);
++  }
+ 
+   // Update feedback either from external measured state or from state interfaces
+   if (params_.use_external_measured_states)

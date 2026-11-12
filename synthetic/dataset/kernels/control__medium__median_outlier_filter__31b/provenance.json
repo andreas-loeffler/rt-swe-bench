@@ -1,0 +1,123 @@
+{
+ "id": "control__medium__median_outlier_filter__31b",
+ "idea": {
+  "domain": "control",
+  "level": "medium",
+  "name": "median_outlier_filter",
+  "class": "MedianFilter",
+  "summary": "Removes impulse noise by maintaining a sorted window of recent samples and returning the median.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 22,
+   "killed": 18,
+   "kill_rate": 0.818,
+   "survivors": [
+    "line 40: 1 -> 2",
+    "line 41: - -> +",
+    "line 36: > -> >=",
+    "line 41: 1 -> 0"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 600,
+     "allocs": 2393,
+     "bytes": 35832,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 2393
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 600,
+     "allocs": 1200,
+     "bytes": 327018,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1200
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference_2.hpp F=0 R=0",
+   "by": "12b",
+   "files": [
+    "reference_2.hpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": false
+}

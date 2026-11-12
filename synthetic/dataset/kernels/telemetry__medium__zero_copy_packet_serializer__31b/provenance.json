@@ -1,0 +1,121 @@
+{
+ "id": "telemetry__medium__zero_copy_packet_serializer__31b",
+ "idea": {
+  "domain": "telemetry",
+  "level": "medium",
+  "name": "zero_copy_packet_serializer",
+  "class": "ZeroCopyPacketSerializer",
+  "summary": "Serializes multiple telemetry fields into a provided raw byte buffer with bounds checking.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2520,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2520,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 11,
+   "compiled": 11,
+   "killed": 10,
+   "kill_rate": 0.909,
+   "survivors": [
+    "line 15: > -> >="
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2520,
+     "allocating_cycles": 5,
+     "allocs": 5,
+     "bytes": 124,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 5
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2520,
+     "allocating_cycles": 960,
+     "allocs": 2880,
+     "bytes": 90240,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 2880
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp",
+    "std_function.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference.hpp F=0 R=0, reference_2.hpp F=0 R=0",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": true
+}

@@ -1,0 +1,91 @@
+{
+ "id": "data_structures__easy__fixed_capacity_stack__31b__implement",
+ "kernel": "data_structures__easy__fixed_capacity_stack__31b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "data_structures",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1020,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cstddef>\n\nclass FixedCapacityStack {\npublic:\n    void configure(size_t capacity) {\n        buffer = new int[capacity];\n        max_capacity = capacity;\n        current_size = 0;\n    }\n\n    bool push(int value) {\n        if (current_size >= max_capacity) {\n            return false;\n        }\n        buffer[current_size++] = value;\n        return true;\n    }\n\n    bool pop(int& out_value) {\n        if (current_size == 0) {\n            return false;\n        }\n        out_value = buffer[--current_size];\n        return true;\n    }\n\n    size_t size() const {\n        return current_size;\n    }\n\n    ~FixedCapacityStack() {\n        delete[] buffer;\n    }\n\nprivate:\n    int* buffer = nullptr;\n    size_t max_capacity = 0;\n    size_t current_size = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 6549,
+  "completion_tokens": 704
+ },
+ "started": 1793819513.445629,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 765.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by reading the specification to understand the requirements for the `Kernel` class.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# FixedCapacityStack\n     2\t\n     3\tA LIFO (Last-In, First-Out) stack implementation designed for hard real-time contexts. The stack uses a pre-allocated buffer to ensure that no dynamic memory allocation occurs during push and pop operations.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\tInitializes the stack with a maximum capacity. This method is called once during the setup phase and is permitted to allocate heap memory.\n     9\t\n    10\t### `bool push(int value)`\n    11\tPushes an integer onto the stack.\n    12\t- **Returns**: `true` if the value was successfully pushed; `false` if the stack is full.\n    13\t- **Real-time Constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    14\t\n    15\t### `bool pop(int& out_value)`\n    16\tPops the top integer from the stack and assigns it to `out_value`.\n    17\t- **Returns**: `true` if a value was popped; `false` if the stack was empty.\n    18\t- **Real-time Constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    19\t\n    20\t### `size_t size() const`\n    21\tReturns the current number of elements in the stack.\n    22\t- **Real-time Constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    23\t\n    24\t## Preconditions\n    25\t- `configure(capacity)` must be called before any other method.\n    26\t- The `capacity` provided to `configure` must be greater than 0."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current contents of `kernel.hpp` to see the stub implementation.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-26 of 26)\n     1\t#pragma once\n     2\t\n     3\t#include <cstddef>\n     4\t\n     5\tclass FixedCapacityStack {\n     6\tpublic:\n     7\t    void configure(size_t capacity) {\n     8\t        // TODO: Implement allocation\n     9\t    }\n    10\t\n    11\t    bool push(int value) {\n    12\t        // TODO: Implement push\n    13\t        return false;\n    14\t    }\n    15\t\n    16\t    bool pop(int& out_value) {\n    17\t        // TODO: Implement pop\n    18\t        out_value = 0;\n    19\t        return false;\n    20\t    }\n    21\t\n    22\t    size_t size() const {\n    23\t        // TODO: Implement size\n    24\t        return 0;\n    25\t    }\n    26\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will implement the `FixedCapacityStack` by adding a pointer to a buffer and a current size tracker. I'll use `std::vector` as the internal storage since `configure` is allowed to allocate, and it provides a convenient way to manage the memory that can then be accessed via a raw pointer or index in the real-time methods.\n\nActually, to be most explicit about the memory and constraints, I'll use a `std::vector<int>` and just use its `data()` and `size()` methods, or simply a raw pointer and a `capacity` member.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class FixedCapacityStack {\\npublic:\\n    void configure(size_t capacity) {\\n        // TODO: Implement allocation\\n    }\\n\\n    bool push(int value) {\\n        // TODO: Implement push\\n        return false;\\n    }\\n\\n    bool pop(int& out_value) {\\n        // TODO: Implement pop\\n        out_value = 0;\\n        return false;\\n    }\\n\\n    size_t size() const {\\n        // TODO: Implement size\\n        return 0;\\n    }\\n};\", \"new\": \"class FixedCapacityStack {\\npublic:\\n    void configure(size_t capacity) {\\n        buffer = new int[capacity];\\n        max_capacity = capacity;\\n        current_size = 0;\\n    }\\n\\n    bool push(int value) {\\n        if (current_size >= max_capacity) {\\n            return false;\\n        }\\n        buffer[current_size++] = value;\\n        return true;\\n    }\\n\\n    bool pop(int& out_value) {\\n        if (current_size == 0) {\\n            return false;\\n        }\\n        out_value = buffer[--current_size];\\n        return true;\\n    }\\n\\n    size_t size() const {\\n        return current_size;\\n    }\\n\\n    ~FixedCapacityStack() {\\n        delete[] buffer;\\n    }\\n\\nprivate:\\n    int* buffer = nullptr;\\n    size_t max_capacity = 0;\\n    size_t current_size = 0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will run the tests to verify the implementation.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have implemented the `FixedCapacityStack` class according to the specification. The `configure` method allocates the necessary memory, while `push`, `pop`, and `size` operate on the pre-allocated buffer without any dynamic memory allocation, meeting the real-time constraints.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

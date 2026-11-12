@@ -1,0 +1,58 @@
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index 2f3a2ce9..09bd3ffe 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -1100,6 +1100,16 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   resize_joint_trajectory_point(state_error_, dof_);
+   resize_joint_trajectory_point(
+     last_commanded_state_, dof_, std::numeric_limits<double>::quiet_NaN());
++  // Sampling fills positions, velocities, accelerations and effort of these
++  // points, whatever interfaces exist; reserve all four so update() never grows
++  // them.
++  for (auto * point : {&state_desired_, &command_next_, &last_commanded_state_})
++  {
++    point->positions.reserve(dof_);
++    point->velocities.reserve(dof_);
++    point->accelerations.reserve(dof_);
++    point->effort.reserve(dof_);
++  }
+ 
+   // create services
+   query_state_srv_ = get_node()->create_service<control_msgs::srv::QueryTrajectoryState>(
+diff --git a/joint_trajectory_controller/src/trajectory.cpp b/joint_trajectory_controller/src/trajectory.cpp
+index b23dc529..09997b95 100644
+--- a/joint_trajectory_controller/src/trajectory.cpp
++++ b/joint_trajectory_controller/src/trajectory.cpp
+@@ -104,6 +104,17 @@ void Trajectory::update(std::shared_ptr<trajectory_msgs::msg::JointTrajectory> j
+   trajectory_start_time_ = static_cast<rclcpp::Time>(joint_trajectory->header.stamp);
+   sampled_already_ = false;
+   last_sample_idx_ = 0;
++
++  // Fill missing efforts once, when the trajectory is set. sample() would do it
++  // lazily in deduce_from_derivatives(), allocating at every new segment.
++  const size_t dim = joint_trajectory->joint_names.size();
++  for (auto & point : joint_trajectory->points)
++  {
++    if (point.effort.empty())
++    {
++      point.effort.assign(dim, 0.0);
++    }
++  }
+ }
+ 
+ bool Trajectory::sample(
+@@ -139,7 +150,13 @@ bool Trajectory::sample(
+     return false;
+   }
+ 
+-  output_state = trajectory_msgs::msg::JointTrajectoryPoint();
++  // Reset the output in place: assigning a fresh JointTrajectoryPoint frees its
++  // vectors, and refilling them allocated on every sample (twice per update()).
++  output_state.positions.clear();
++  output_state.velocities.clear();
++  output_state.accelerations.clear();
++  output_state.effort.clear();
++  output_state.time_from_start = builtin_interfaces::msg::Duration();
+   auto & first_point_in_msg = trajectory_msg_->points[0];
+   const rclcpp::Time first_point_timestamp =
+     trajectory_start_time_ + first_point_in_msg.time_from_start;

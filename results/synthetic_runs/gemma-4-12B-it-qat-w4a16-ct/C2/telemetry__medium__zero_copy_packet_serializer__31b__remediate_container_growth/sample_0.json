@@ -1,0 +1,107 @@
+{
+ "id": "telemetry__medium__zero_copy_packet_serializer__31b__remediate_container_growth",
+ "kernel": "telemetry__medium__zero_copy_packet_serializer__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "telemetry",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2520,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cstdint>\n#include <cstring>\n#include <vector>\n\nclass ZeroCopyPacketSerializer {\npublic:\n    void configure(size_t max_buffer_size) {\n        max_size_ = max_buffer_size;\n        buffer_.resize(max_buffer_size);\n        offset_ = 0;\n    }\n\n    bool serialize_float(float value) {\n        if (offset_ + sizeof(float) > max_size_) {\n            return false;\n        }\n        \n        append_bytes(&value, sizeof(float));\n        offset_ += sizeof(float);\n        return true;\n    }\n\n    bool serialize_uint32(uint32_t value) {\n        if (offset_ + sizeof(uint32_t) > max_size_) {\n            return false;\n        }\n        \n        append_bytes(&value, sizeof(uint32_t));\n        offset_ += sizeof(uint32_t);\n        return true;\n    }\n\n    size_t get_written_bytes() const {\n        return offset_;\n    }\n\n    void reset() {\n        offset_ = 0;\n    }\n\n    const uint8_t* data() const {\n        return buffer_.data();\n    }\n\nprivate:\n    void append_bytes(const void* src, size_t size) {\n        const uint8_t* bytes = static_cast<const uint8_t*>(src);\n        std::memcpy(buffer_.data() + offset_, bytes, size);\n    }\n\n    std::vector<uint8_t> buffer_;\n    size_t max_size_ = 0;\n    size_t offset_ = 0;\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 20243,
+  "completion_tokens": 2591
+ },
+ "started": 1793819293.1349995,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1339.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-32 of 32)\n     1\t# ZeroCopyPacketSerializer\n     2\t\n     3\tThe `ZeroCopyPacketSerializer` is designed for high-performance telemetry systems where data must be packed into a raw byte buffer for transmission without heap allocation or redundant copying during the real-time loop.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t max_buffer_size)`\n     8\tCalled once during initialization. Allocates internal state necessary to manage a buffer of the specified maximum size.\n     9\t\n    10\t### `bool serialize_float(float value)`\n    11\tAppends a 32-bit float to the internal buffer using the system's native endianness. \n    12\t- Returns `true` if the value was successfully written.\n    13\t- Returns `false` if adding the value would exceed the `max_buffer_size` configured.\n    14\t\n    15\t### `bool serialize_uint32(uint32_t value)`\n    16\tAppends a 32-bit unsigned integer to the internal buffer.\n    17\t- Returns `true` if the value was successfully written.\n    18\t- Returns `false` if adding the value would exceed the `max_buffer_size` configured.\n    19\t\n    20\t### `size_t get_written_bytes() const`\n    21\tReturns the current offset (number of bytes written) in the buffer.\n    22\t\n    23\t### `void reset()`\n    24\tResets the write offset to zero, effectively clearing the buffer for a new packet.\n    25\t\n    26\t### `const uint8_t* data() const`\n    27\tReturns a pointer to the start of the serialized byte buffer.\n    28\t\n    29\t## Constraints and Preconditions\n    30\t- `configure` must be called before any other method.\n    31\t- The real-time methods (`serialize_float`, `serialize_uint32`, `get_written_bytes`, `reset`, `data`) must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    32\t- Once the buffer is full (indicated by `serialize` methods returning `false`), no further data can be written until `reset()` is called."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-56 of 56)\n     1\t#pragma once\n     2\t\n     3\t#include <cstdint>\n     4\t#include <cstring>\n     5\t#include <vector>\n     6\t\n     7\tclass ZeroCopyPacketSerializer {\n     8\tpublic:\n     9\t    void configure(size_t max_buffer_size) {\n    10\t        max_size_ = max_buffer_size;\n    11\t        offset_ = 0;\n    12\t    }\n    13\t\n    14\t    bool serialize_float(float value) {\n    15\t        if (offset_ + sizeof(float) > max_size_) {\n    16\t            return false;\n    17\t        }\n    18\t        \n    19\t        append_bytes(&value, sizeof(float));\n    20\t        offset_ += sizeof(float);\n    21\t        return true;\n    22\t    }\n    23\t\n    24\t    bool serialize_uint32(uint32_t value) {\n    25\t        if (offset_ + sizeof(uint32_t) > max_size_) {\n    26\t            return false;\n    27\t        }\n    28\t        \n    29\t        append_bytes(&value, sizeof(uint32_t));\n    30\t        offset_ += sizeof(uint32_t);\n    31\t        return true;\n    32\t    }\n    33\t\n    34\t    size_t get_written_bytes() const {\n    35\t        return offset_;\n    36\t    }\n    37\t\n    38\t    void reset() {\n    39\t        buffer_.clear();\n    40\t        offset_ = 0;\n    41\t    }\n    42\t\n    43\t    const uint8_t* data() const {\n    44\t        return buffer_.data();\n    45\t    }\n    46\t\n    47\tprivate:\n    48\t    void append_bytes(const void* src, size_t size) {\n    49\t        const uint8_t* bytes = static_cast<const uint8_t*>(src);\n    50\t        buffer_.insert(buffer_.end(), bytes, bytes + size);\n    51\t    }\n    52\t\n    53\t    std::vector<uint8_t> buffer_;\n    54\t    size_t max_size_ = 0;\n    55\t    size_t offset_ = 0;\n    56\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe current implementation of `ZeroCopyPacketSerializer` uses `std::vector::insert` and `std::vector::clear`, which can trigger heap reallocations or fail to maintain the specific memory requirements of a real-time system (specifically, the requirement to avoid heap allocation/deallocation during the real-time loop). To fix this, I will change the `buffer_` to a `std::vector<uint8_t>` that is pre-allocated during `configure`, and use `std::memcpy` to copy bytes into the pre-allocated space.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n    10\t        max_size_ = max_buffer_size;\\n    11\t        offset_ = 0;\\n    12\t    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_size_);\\n        offset_ = 0;\\n    }\"}}\n```\n\nWait, looking at the source provided, the line numbers are slightly different in the `view` output. Let me check the exact text for `configure`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 9, \"end\": 12}}\n```\n\nActually, I see the user provided the code. Let's just edit it directly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        offset_ = 0;\\n    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_size_);\\n        offset_ = 0;\\n    }\"}}\n```\n\nWait, the `view` output shows:\n```\n     9\t    void configure(size_t max_buffer_size) {\n    10\t        max_size_ = max_buffer_size;\n    11\t        offset_ = 0;\n    12\t    }\n```\nNote that the tabs/spaces are important. The original `view` output shows a mix of tabs and spaces. Looking closely:\nLine 9: `    void configure(size_t max_buffer_size) {` (4 spaces)\nLine 10: `        max_size_ = max_buffer_size;` (8 spaces)\nLine 11: `        offset_ = 0;` (8 spaces)\nLine 12: `    }` (4 spaces)\n\nLet's try the edit. Actually, I'll use the exact text from the view.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        offset_ = 0;\\n    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_size_);\\n        offset_ = 0;\\n    }\"}}\n```\nWait, I should check the exact characters. The view shows:\n`     9\t    void configure(size_t max_buffer_size) {` -> That's a tab then 4 spaces.\nLet me re-examine the `view` output.\n\nLine 9: `    void configure(size_t max_buffer_size) {`\nLine 10: `        max_size_ = max_buffer_size;`\nLine 11: `        offset_ = 0;`\nLine 12: `    }`\n\nThe `view` output uses a tab between the line number and the code.\nSo:\n9\t    void configure(size_t max_buffer_size) {\n\nI will start by replacing the `configure` method first.\n\nWait, the `view` output says:\n`     9\t    void configure(size_t max_buffer_size) {`\nThe leading ` ` are spaces, then a `\\t`, then the code. I need to match that.\n\nLet's try to replace the whole block from 9 to 12.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        offset_ = 0;\\n    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_size_);\\n        offset_ = 0;\\n    }\"}}\n```\nWait, if I use `edit`, I must match the spaces exactly.\n\nLet's use `view` to see the actual content again.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1, \"end\": 56}}\n```\n\nActually, I see the `view` output provided in the prompt history. It shows:\n`     9\t    void configure(size_t max_buffer_size) {`\nThe tab is there.\n\nI will try to replace `configure` first. Since the goal is to avoid allocation in real-time, and `buffer_.insert` and `buffer_.clear` (which might deallocate) are the problems, I'll change the logic to use `memcpy`.\n\nLet's see the `append_bytes` first as that's where the `insert` is.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        buffer_.insert(buffer_.end(), bytes, bytes + size);\\n    }\", \"new\": \"        std::memcpy(buffer_.data() + offset_, bytes, size);\\n        return true;\\n    }\"}}\n```\nNo, `append_bytes` is private and used by `serialize_float` and `serialize_uint32`.\n\nWait, `serialize_float` calls `append_bytes` and then does `offset_ += sizeof(float)`.\nIf I change `append_bytes` to use `memcpy`, I need to make sure it doesn't return `true` if it's part of a `bool` return.\n`append_bytes` currently returns `void`.\n\nLet's look at `serialize_float`:\n```cpp\n    bool serialize_float(float value) {\n        if (offset_ + sizeof(float) > max_size_) {\n            return false;\n        }\n        \n        append_bytes(&value, sizeof(float));\n        offset_ += sizeof(float);\n        return true;\n    }\n```\nIt checks the bounds, calls `append_bytes`, and increments `offset_`.\nSo `append_bytes` doesn't need to return anything. I just need to change its body.\n\nCurrent `append_bytes`:\n```cpp\n    void append_bytes(const void* src, size_t size) {\n        const uint8_t* bytes = static_cast<const uint8_t*>(src);\n        buffer_.insert(buffer_.end(), bytes, bytes + size);\n    }\n```\n\nIf I change `buffer_.insert` to `std::memcpy`, I must ensure `buffer_` is sized.\n\nPlan:\n1. Update `configure` to `buffer_.resize(max_buffer_size)`.\n2. Update `append_bytes` to use `std::memcpy`.\n3. Update `reset` to set `offset_ = 0` (and `buffer_.clear()` is no longer needed/safe if it deallocates, but `resize` was already called).\n4. Update `data` to return `buffer_.data()`.\n\nLet's do `configure` first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        offset_ = 0;\\n    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_buffer_size);\\n        offset_ = 0;\\n    }\"}}\n```\nWait, the indentation in the `view` is 4 spaces for the method body and 8 for the inner body?\nLet's check:\n`    void configure(size_t max_buffer_size) {` (4 spaces)\n`        max_size_ = max_buffer_size;` (8 spaces)\n`        offset_ = 0;` (8 spaces)\n`    }` (4 spaces)\n\nWait, the `view` output shows a tab:\n`     9\t    void configure(size_t max_buffer_size) {`\nThe ` ` are spaces.\n\nI'll try to replace the `configure` block.Reasoning: I will update the `configure` method to pre-allocate the buffer using `resize`. This allows the real-time methods to use `std::memcpy` into the pre-allocated memory, avoiding any heap allocations during the real-time path.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        offset_ = 0;\\n    }\", \"new\": \"    void configure(size_t max_buffer_size) {\\n        max_size_ = max_buffer_size;\\n        buffer_.resize(max_buffer_size);\\n        offset_ = 0;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void reset() {\\n        buffer_.clear();\\n        offset_ = 0;\\n    }\", \"new\": \"    void reset() {\\n        offset_ = 0;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void append_bytes(const void* src, size_t size) {\\n        const uint8_t* bytes = static_cast<const uint8_t*>(src);\\n        buffer_.insert(buffer_.end(), bytes, bytes + size);\\n    }\", \"new\": \"    void append_bytes(const void* src, size_t size) {\\n        const uint8_t* bytes = static_cast<const uint8_t*>(src);\\n        std::memcpy(buffer_.data() + offset_, bytes, size);\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

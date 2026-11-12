@@ -1,0 +1,14 @@
+diff --git a/steering_controllers_library/src/steering_kinematics.cpp b/steering_controllers_library/src/steering_kinematics.cpp
+index 8ac1f482..6ec3baab 100644
+--- a/steering_controllers_library/src/steering_kinematics.cpp
++++ b/steering_controllers_library/src/steering_kinematics.cpp
+@@ -311,6 +311,9 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+   {
+     std::vector<double> traction_commands;
+     std::vector<double> steering_commands;
++    // pre-allocate the command vectors
++    traction_commands.reserve(2);
++    steering_commands.reserve(2);
+     if (is_close_to_zero(phi_IK))
+     {
+       // avoid division by zero

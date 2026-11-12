@@ -1,0 +1,15 @@
+{
+  "id": "rt-014",
+  "track": 1,
+  "source": "upstream fix reverted: ros2_controllers#2359 (backport #2364, 92535e67)",
+  "package": "joint_trajectory_controller",
+  "probe": "task_rt_014_jtc_skip",
+  "issue": "issue.md",
+  "base_patch": "base.diff",
+  "test_patch": "test.diff",
+  "files": [
+    "joint_trajectory_controller/src/trajectory.cpp"
+  ],
+  "warmup_cycles": 3,
+  "notes": "base.diff = rt-010 reference (so sample() itself does not allocate) + revert of #2359 (source and tests). naive.diff is the merged upstream fix; deduce_from_derivatives() resizes the empty positions of the skipped last point inside update(). The reference also reserves those positions when the trajectory is set."
+}

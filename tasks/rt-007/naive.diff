@@ -1,0 +1,35 @@
+diff --git a/diff_drive_controller/include/diff_drive_controller/diff_drive_controller.hpp b/diff_drive_controller/include/diff_drive_controller/diff_drive_controller.hpp
+index 704c5f01..08c6cff7 100644
+--- a/diff_drive_controller/include/diff_drive_controller/diff_drive_controller.hpp
++++ b/diff_drive_controller/include/diff_drive_controller/diff_drive_controller.hpp
+@@ -21,6 +21,7 @@
+ 
+ #include <chrono>
+ #include <memory>
++#include <list>
+ #include <queue>
+ #include <string>
+ #include <vector>
+@@ -130,7 +131,8 @@ protected:
+   // save the last reference in case of unable to get value from box
+   TwistStamped command_msg_;
+ 
+-  std::queue<std::array<double, 2>> previous_two_commands_;
++  // std::list does not grow in blocks like std::deque
++  std::queue<std::array<double, 2>, std::list<std::array<double, 2>>> previous_two_commands_;
+   // speed limiters
+   std::unique_ptr<SpeedLimiter> limiter_linear_;
+   std::unique_ptr<SpeedLimiter> limiter_angular_;
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+index 477c7334..9c2ad660 100644
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -654,7 +654,7 @@ void DiffDriveController::reset_buffers()
+     }
+   }
+   // Empty out the old queue. Fill with zeros (not NaN) to catch early accelerations.
+-  std::queue<std::array<double, 2>> empty;
++  std::queue<std::array<double, 2>, std::list<std::array<double, 2>>> empty;
+   std::swap(previous_two_commands_, empty);
+   previous_two_commands_.push({{0.0, 0.0}});
+   previous_two_commands_.push({{0.0, 0.0}});

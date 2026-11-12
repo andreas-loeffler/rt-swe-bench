@@ -1,0 +1,91 @@
+{
+ "id": "scheduling__hard__multi_stage_timeout_manager__31b__implement",
+ "kernel": "scheduling__hard__multi_stage_timeout_manager__31b",
+ "kind": "implement",
+ "level": "hard",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cstdint>\n\nclass MultiStageTimeoutManager {\n    struct Timer {\n        uint32_t id = 0;\n        double elapsed = 0.0;\n        bool active = false;\n    };\n\n    std::vector<Timer> timers;\n    std::vector<double> thresholds;\n\npublic:\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\n        timers.assign(max_timers, Timer{});\n        thresholds = thresholds_in;\n    }\n\n    void reset(uint32_t id) {\n        for (auto& t : timers) {\n            if (t.active && t.id == id) {\n                t.elapsed = 0.0;\n                return;\n            }\n        }\n        for (auto& t : timers) {\n            if (!t.active) {\n                t.id = id;\n                t.elapsed = 0.0;\n                t.active = true;\n                return;\n            }\n        }\n    }\n\n    void update(uint32_t id, double delta_time) {\n        for (auto& t : timers) {\n            if (t.active && t.id == id) {\n                t.elapsed += delta_time;\n                return;\n            }\n        }\n    }\n\n    uint8_t get_stage(uint32_t id) const {\n        for (const auto& t : timers) {\n            if (t.active && t.id == id) {\n                uint8_t stage = 0;\n                for (size_t i = 0; i < thresholds.size(); ++i) {\n                    if (t.elapsed >= thresholds[i]) {\n                        stage = static_cast<uint8_t>(i + 1);\n                    } else {\n                        break;\n                    }\n                }\n                return stage;\n            }\n        }\n        return 0;\n    }\n\n    bool is_critical(uint32_t id) const {\n        return get_stage(id) == static_cast<uint8_t>(thresholds.size());\n    }\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7752,
+  "completion_tokens": 831
+ },
+ "started": 1793818738.9199557,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 773.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\n<thought\nI will start by reviewing the specification and the current state of the header file.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-30 of 30)\n     1\t# MultiStageTimeoutManager\n     2\t\n     3\tThe `MultiStageTimeoutManager` tracks multiple concurrent timers, each associated with a specific ID. Each timer progresses through a series of escalating warning levels based on configurable time thresholds.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### Configuration\n     8\t- `void configure(size_t max_timers, const std::vector<double>& thresholds)`\n     9\t  - `max_timers`: Maximum number of concurrent timers to track.\n    10\t  - `thresholds`: A sorted list of time durations. If a timer's elapsed time exceeds `thresholds[i]`, it transitions to stage `i + 1`.\n    11\t\n    12\t### Real-Time Methods\n    13\tAll real-time methods must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    14\t\n    15\t- `void reset(uint32_t id)`\n    16\t  - Resets the timer associated with `id` to 0. If the `id` is not currently tracked, it starts tracking it. If `max_timers` is reached, the call is ignored.\n    17\t- `void update(uint32_t id, double delta_time)`\n    18\t  - Increments the elapsed time for timer `id` by `delta_time`.\n    19\t- `uint8_t get_stage(uint32_t id) const`\n    20\t  - Returns the current stage of the timer. Stage 0 means no threshold reached. Stage $N$ means the $N$-th threshold has been exceeded. Returns 0 if the ID is not tracked.\n    21\t- `bool is_critical(uint32_t id) const`\n    22\t  - Returns true if the timer for `id` has reached the final stage defined in `configure`.\n    23\t\n    24\t## Behavior\n    25\t1. A timer starts at stage 0.\n    26\t2. As `update` is called, the accumulated time is compared against the `thresholds` array.\n    27\t3. If `accumulated_time >= thresholds[0]`, the stage becomes 1.\n    28\t4. If `accumulated_time >= thresholds[k]`, the stage becomes $k+1$.\n    29\t5. `reset` returns the timer to stage 0 and time 0.\n    30\t6. The manager supports up to `max_timers` unique IDs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-29 of 29)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t\n     6\tclass MultiStageTimeoutManager {\n     7\tpublic:\n     8\t    void configure(size_t max_timers, const std::vector<double>& thresholds) {\n     9\t        // TODO: Implement allocation and configuration\n    10\t    }\n    11\t\n    12\t    void reset(uint32_t id) {\n    13\t        // TODO: Implement timer reset/activation\n    14\t    }\n    15\t\n    16\t    void update(uint32_t id, double delta_time) {\n    17\t        // TODO: Implement time accumulation\n    18\t    }\n    19\t\n    20\t    uint8_t get_stage(uint32_t id) const {\n    21\t        // TODO: Implement stage calculation\n    22\t        return 0;\n    23\t    }\n    24\t\n    25\t    bool is_critical(uint32_t id) const {\n    26\t        // TODO: Implement critical state check\n    27\t        return false;\n    28\t    }\n    29\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MultiStageTimeoutManager {\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\\n        // TODO: Implement allocation and configuration\\n    }\\n\\n    void reset(uint32_t id) {\\n        // TODO: Implement timer reset/activation\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        // TODO: Implement time accumulation\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        // TODO: Implement stage calculation\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        // TODO: Implement critical state check\\n        return false;\\n    }\\n};\", \"new\": \"class MultiStageTimeoutManager {\\n    struct Timer {\\n        uint32_t id = 0;\\n        double elapsed = 0.0;\\n        bool active = false;\\n    };\\n\\n    std::vector<Timer> timers;\\n    std::vector<double> thresholds;\\n\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\\n        timers.assign(max_timers, Timer{});\\n        thresholds = thresholds_in;\\n    }\\n\\n    void reset(uint32_t id) {\\n        for (auto& t : timers) {\\n            if (t.active && t.id == id) {\\n                t.elapsed = 0.0;\\n                return;\\n            }\\n        }\\n        for (auto& t : timers) {\\n            if (!t.active) {\\n                t.id = id;\\n                t.elapsed = 0.0;\\n                t.active = true;\\n                return;\\n            }\\n        }\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        for (auto& t : timers) {\\n            if (t.active && t.id == id) {\\n                t.elapsed += delta_time;\\n                return;\\n            }\\n        }\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        for (const auto& t : timers) {\\n            if (t.active && t.id == id) {\\n                uint8_t stage = 0;\\n                for (size_t i = 0; i < thresholds.size(); ++i) {\\n                    if (t.elapsed >= thresholds[i]) {\\n                        stage = static_cast<uint8_t>(i + 1);\\n                    } else {\\n                        break;\\n                    }\\n                }\\n                return stage;\\n            }\\n        }\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        return get_stage(id) == static_cast<uint8_t>(thresholds.size());\\n    }\\n};\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

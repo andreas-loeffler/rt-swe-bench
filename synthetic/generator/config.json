@@ -1,0 +1,114 @@
+{
+  "_comment": "Fixed by the authors, not by a model: domains, difficulty levels, allocation patterns, models, sampling. Review before a run.",
+  "prompt_version": "t1-v3",
+  "ideas_per_domain_per_level_per_model": 8,
+  "mutants_per_kernel": 24,
+  "min_compiling_mutants": 5,
+  "min_kill_rate": 0.8,
+  "variants_per_kernel": 2,
+  "repair_rounds": 2,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "top_k": 64,
+    "max_tokens": 12000
+  },
+  "models": {
+    "31b": {
+      "model": "google/gemma-4-31B-it-qat-w4a16-ct",
+      "base_url": "http://localhost:8000/v1"
+    },
+    "12b": {
+      "model": "google/gemma-4-12B-it-qat-w4a16-ct",
+      "base_url": "http://localhost:8001/v1"
+    }
+  },
+  "domains": [
+    {
+      "name": "control",
+      "about": "feedback controllers and filters run once per control cycle (PID variants, lead-lag, rate and slew limiters, deadbands)"
+    },
+    {
+      "name": "signal_processing",
+      "about": "sample-by-sample or block filters (FIR, IIR, median, decimation, envelope and peak detection)"
+    },
+    {
+      "name": "audio_dsp",
+      "about": "audio callbacks that process a block of frames (gain ramps, delay lines, oscillators, mixers, compressors)"
+    },
+    {
+      "name": "estimation",
+      "about": "state estimation updated each cycle (complementary filter, alpha-beta filter, fixed-size Kalman filter, running statistics)"
+    },
+    {
+      "name": "motion",
+      "about": "trajectory and motion generation sampled each cycle (interpolation between waypoints, trapezoidal profiles, jerk limiting)"
+    },
+    {
+      "name": "kinematics",
+      "about": "fixed-size geometry and kinematics (2D and 3D transforms, forward kinematics of a planar arm, wheel odometry)"
+    },
+    {
+      "name": "data_structures",
+      "about": "containers used on a real-time path (ring buffers, fixed-capacity queues and stacks, object pools, sorted windows)"
+    },
+    {
+      "name": "messaging",
+      "about": "fixed-layout message handling (serialization into a preallocated buffer, parsing, checksums, double buffering)"
+    },
+    {
+      "name": "telemetry",
+      "about": "formatting status text or log records into a preallocated buffer, counters and histograms"
+    },
+    {
+      "name": "scheduling",
+      "about": "timing and supervision (watchdogs, rate dividers, debouncers, timeouts, simple state machines)"
+    }
+  ],
+  "patterns": [
+    {
+      "name": "temporary_container",
+      "about": "a std::vector or other container constructed inside the real-time call"
+    },
+    {
+      "name": "copy_by_value",
+      "about": "a container or object holding a container passed or returned by value, or a missing & on a loop variable or parameter"
+    },
+    {
+      "name": "string_formatting",
+      "about": "std::string concatenation, std::to_string or std::ostringstream inside the real-time call"
+    },
+    {
+      "name": "container_growth",
+      "about": "push_back, insert or resize on a container without capacity reserved in configure(), or a std::deque or std::list that allocates nodes"
+    },
+    {
+      "name": "std_function",
+      "about": "a std::function holding a lambda whose captures do not fit the small-buffer storage, created in the real-time call"
+    },
+    {
+      "name": "shared_ptr",
+      "about": "std::make_shared or std::make_unique inside the real-time call"
+    }
+  ],
+  "levels": [
+    {
+      "name": "easy",
+      "max_lines": 60,
+      "about": "one class with one real-time method and one internal buffer whose size follows directly from a configure() parameter",
+      "variant_hint": "Put the allocation directly in the real-time method."
+    },
+    {
+      "name": "medium",
+      "max_lines": 120,
+      "about": "one class with two or three real-time methods that share state (for example push and pop, or update and query), several buffers, and edge cases such as wrap-around, saturation or empty input",
+      "variant_hint": "Put the allocation in the real-time method or in a private helper that it calls."
+    },
+    {
+      "name": "hard",
+      "max_lines": 220,
+      "about": "a small composition: the main class owns one or two helper classes or class templates, its real-time methods call through them several levels deep, buffer sizes depend on several configure() parameters, and the behavior has modes or a small state machine",
+      "variant_hint": "Put the allocation inside a helper class or helper function a few calls below the real-time method, or let it happen only on some calls (for example when an input is larger than any seen before), as long as the given test still triggers it."
+    }
+  ]
+}

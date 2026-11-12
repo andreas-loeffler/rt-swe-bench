@@ -1,0 +1,110 @@
+{
+ "id": "control__hard__complementary_filter_bank__31b",
+ "idea": {
+  "domain": "control",
+  "level": "hard",
+  "name": "complementary_filter_bank",
+  "class": "ComplementaryFilterBank",
+  "summary": "Fuses high-pass and low-pass filtered signals across multiple axes to provide a stable attitude estimate.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 12,
+   "compiled": 12,
+   "killed": 11,
+   "kill_rate": 0.917,
+   "survivors": [
+    "line 27: 0.0 -> 1.0"
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 1,
+     "allocs": 3,
+     "bytes": 120,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 3
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 600,
+     "allocs": 1800,
+     "bytes": 43200,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1800
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "std_function.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

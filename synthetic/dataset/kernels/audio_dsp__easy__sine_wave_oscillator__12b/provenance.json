@@ -1,0 +1,98 @@
+{
+ "id": "audio_dsp__easy__sine_wave_oscillator__12b",
+ "idea": {
+  "domain": "audio_dsp",
+  "level": "easy",
+  "name": "sine_wave_oscillator",
+  "class": "SineWaveOscillator",
+  "summary": "Generates a sine wave based on a phase accumulator that increments by a fixed frequency step per sample.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 9,
+   "compiled": 9,
+   "killed": 8,
+   "kill_rate": 0.889,
+   "survivors": [
+    "line 17: >= -> >"
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 11,
+     "allocs": 11,
+     "bytes": 16376,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 11
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 0,
+    "F": 0,
+    "R": 0,
+    "alloc": null,
+    "mismatch": "",
+    "build_error": "/localscratch/tmpdir.149955/tmp.FzFZwUCt6t/kernel.hpp:25:32: error: capture of non-variable \u2018SineWaveOscillator::m_phaseIncrement\u2019 "
+   },
+   "kept": [
+    "container_growth.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": false
+}

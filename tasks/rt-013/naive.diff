@@ -1,0 +1,19 @@
+diff --git a/gpio_controllers/src/gpio_command_controller.cpp b/gpio_controllers/src/gpio_command_controller.cpp
+index 8ee414d7..60114dd3 100644
+--- a/gpio_controllers/src/gpio_command_controller.cpp
++++ b/gpio_controllers/src/gpio_command_controller.cpp
+@@ -327,11 +327,9 @@ bool GpioCommandController::check_if_configured_interfaces_matches_received(
+ 
+ controller_interface::return_type GpioCommandController::update_gpios_commands()
+ {
+-  auto gpio_commands_op = rt_command_.try_get();
+-  if (gpio_commands_op.has_value())
+-  {
+-    gpio_commands_ = gpio_commands_op.value();
+-  }
++  // Copy the latest command into gpio_commands_ in place; the value-returning
++  // try_get() copies the whole message on every cycle.
++  rt_command_.try_get([this](const CmdType & msg) { gpio_commands_ = msg; });
+   if (gpio_commands_.interface_groups.empty() || gpio_commands_.interface_values.empty())
+   {
+     // no command received yet

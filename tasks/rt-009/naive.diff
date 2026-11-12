@@ -1,0 +1,13 @@
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+index 6eb6c4c8..3341a084 100644
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -112,7 +112,7 @@ controller_interface::return_type DiffDriveController::update_reference_from_sub
+   auto current_ref_op = received_velocity_msg_.try_get();
+   if (current_ref_op.has_value())
+   {
+-    command_msg_ = current_ref_op.value();
++    command_msg_ = std::move(current_ref_op.value());
+   }
+ 
+   constexpr rcutils_duration_value_t warning_throttle_ms = 1000;

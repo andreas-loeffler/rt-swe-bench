@@ -1,0 +1,91 @@
+{
+ "id": "control__easy__slew_rate_limiter__31b__remediate_copy_by_value",
+ "kernel": "control__easy__slew_rate_limiter__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1500,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <algorithm>\n\nclass SlewRateLimiter {\npublic:\n    void configure(double max_delta, double initial_value) {\n        m_max_delta = max_delta;\n        m_prev = initial_value;\n    }\n\n    double process(double input) {\n        double diff = input - m_prev;\n        \n        if (diff > m_max_delta) {\n            m_prev += m_max_delta;\n        } else if (diff < -m_max_delta) {\n            m_prev -= m_max_delta;\n        } else {\n            m_prev = input;\n        }\n        \n        return m_prev;\n    }\n\nprivate:\n    double m_max_delta = 0.0;\n    double m_prev = 0.0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 6283,
+  "completion_tokens": 607
+ },
+ "started": 1793820770.2612636,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 940.4,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to see the specification and the current implementation to identify the heap allocations in the real-time methods and move them to the `configure` method.\n\n```json\n{\n  \"tool\": \"view\",\n  \"args\": {\n    \"path\": \"spec.md\"\n  }\n}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-18 of 18)\n     1\t# Slew Rate Limiter\n     2\t\n     3\tThe `SlewRateLimiter` constrains the rate of change of a signal. If the difference between the current target value and the previous output exceeds a defined maximum change per sample, the output is clamped to the maximum allowable change in the direction of the target.\n     4\t\n     5\t## API\n     6\t- `void configure(double max_delta, double initial_value)`: Sets the maximum allowable change per sample and initializes the starting state of the filter.\n     7\t- `double process(double input)`: Processes a single sample. Returns the slewed output.\n     8\t\n     9\t## Constraints\n    10\t- `process` is a hard real-time method. It must not allocate heap memory, throw exceptions, perform I/O, or use locks.\n    11\t- `configure` may allocate memory.\n    12\t\n    13\t## Behavior\n    14\tGiven a target `input` and the previous output `prev`:\n    15\t1. Calculate `diff = input - prev`.\n    16\t2. If `diff > max_delta`, the result is `prev + max_delta`.\n    17\t3. If `diff < -max_delta`, the result is `prev - max_delta`.\n    18\t4. Otherwise, the result is `input`."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will start by viewing the current implementation of `kernel.hpp` to identify the real-time heap allocations.\n\n```json\n{\n  \"tool\": \"view\",\n  \"args\": {\n    \"path\": \"kernel.hpp\"\n  }\n}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-31 of 31)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <algorithm>\n     5\t\n     6\tclass SlewRateLimiter {\n     7\tpublic:\n     8\t    void configure(double max_delta, double initial_value) {\n     9\t        m_max_delta = max_delta;\n    10\t        m_prev = initial_value;\n    11\t    }\n    12\t\n    13\t    double process(double input) {\n    14\t        std::vector<double> bounds = { -m_max_delta, m_max_delta };\n    15\t        double diff = input - m_prev;\n    16\t        \n    17\t        if (diff > bounds[1]) {\n    18\t            m_prev += bounds[1];\n    19\t        } else if (diff < bounds[0]) {\n    20\t            m_prev += bounds[0];\n    21\t        } else {\n    22\t            m_prev = input;\n    23\t        }\n    24\t        \n    25\t        return m_prev;\n    26\t    }\n    27\t\n    28\tprivate:\n    29\t    double m_max_delta = 0.0;\n    30\t    double m_prev = 0.0;\n    31\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The real-time method `process` currently allocates a `std::vector` on every call. I will move the bounds calculation to be constant or handle them directly as scalars since they are derived from `m_max_delta`, thus avoiding any heap allocation in the `process` method.\n\n```json\n{\n  \"tool\": \"edit\",\n  \"args\": {\n    \"path\": \"kernel.hpp\",\n    \"old\": \"    double process(double input) {\\n        std::vector<double> bounds = { -m_max_delta, m_max_delta };\\n        double diff = input - m_prev;\\n        \\n        if (diff > bounds[1]) {\\n            m_prev += bounds[1];\\n        } else if (diff < bounds[0]) {\\n            m_prev += bounds[0];\\n        } else {\\n            m_prev = input;\\n        }\\n        \\n        return m_prev;\\n    }\",\n    \"new\": \"    double process(double input) {\\n        double diff = input - m_prev;\\n        \\n        if (diff > m_max_delta) {\\n            m_prev += m_max_delta;\\n        } else if (diff < -m_max_delta) {\\n            m_prev -= m_max_delta;\\n        } else {\\n            m_prev = input;\\n        }\\n        \\n        return m_prev;\\n    }\"\n  }\n}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will now run the test to verify that the changes are correct and maintain the required functionality.\n\n```json\n{\n  \"tool\": \"test\",\n  \"args\": {}\n}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `process` method in `kernel.hpp` was allocating a `std::vector` on every call, which is forbidden in real-time paths. I have replaced the `std::vector` usage with direct scalar comparisons using `m_max_delta`, making the method allocation-free as required by the specification.\n\n```json\n{\n  \"tool\": \"submit\",\n  \"args\": {}\n}\n```"
+  }
+ ]
+}

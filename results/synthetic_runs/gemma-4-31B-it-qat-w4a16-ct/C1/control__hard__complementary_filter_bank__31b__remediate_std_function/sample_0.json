@@ -1,0 +1,107 @@
+{
+ "id": "control__hard__complementary_filter_bank__31b__remediate_std_function",
+ "kernel": "control__hard__complementary_filter_bank__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <algorithm>\n\n\nclass AxisFilter {\npublic:\n    void init(double dt, double alpha) {\n        m_dt = dt;\n        m_alpha = alpha;\n        m_state = 0.0;\n    }\n\n    double step(double gyro, double accel) {\n        double angle_gyro = m_state + (gyro * m_dt);\n        m_state = (m_alpha * angle_gyro) + ((1.0 - m_alpha) * accel);\n        return m_state;\n    }\n\n    void reset() { m_state = 0.0; }\n\nprivate:\n\n\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    double m_state = 0.0;\n};\n\nclass ComplementaryFilterBank {\npublic:\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        m_filters.resize(num_axes);\n        for (auto& f : m_filters) {\n            f.init(m_dt, m_alpha);\n        }\n    }\n\n    void process(const double* gyro_rates, const double* accels, double* output) {\n        for (size_t i = 0; i < m_num_axes; ++i) {\n            output[i] = m_filters[i].step(gyro_rates[i], accels[i]);\n        }\n    }\n\nprivate:\n    size_t m_num_axes = 0;\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    std::vector<AxisFilter> m_filters;\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 13544,
+  "completion_tokens": 669
+ },
+ "started": 1793818739.0226507,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1039.9,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation to identify the heap allocations in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# ComplementaryFilterBank\n     2\t\n     3\tThe `ComplementaryFilterBank` computes a stable attitude estimate by fusing data from two different sensors (typically an accelerometer/gravimeter for low-frequency stability and a gyroscope for high-frequency responsiveness) across multiple axes.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t num_axes, double sample_rate, double alpha)`\n     8\t- `num_axes`: Number of spatial dimensions (e.g., 3 for XYZ).\n     9\t- `sample_rate`: The sampling frequency in Hz.\n    10\t- `alpha`: The filter coefficient (typically 0.95 to 0.99). Higher values trust the gyroscope more.\n    11\t- **Preconditions**: `num_axes > 0`, `sample_rate > 0`, `0.0 < alpha < 1.0`.\n    12\t- **Note**: This method may allocate memory.\n    13\t\n    14\t### `void process(const double* gyro_rates, const double* accels, double* output)`\n    15\t- `gyro_rates`: Array of size `num_axes` containing angular velocities (rad/s).\n    16\t- `accels`: Array of size `num_axes` containing normalized acceleration vectors (gravity reference).\n    17\t- `output`: Array of size `num_axes` where the estimated attitude (angles) is written.\n    18\t- **Real-time Constraint**: This method must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    19\t\n    20\t## Behavior\n    21\tThe filter maintains an internal state for each axis. For each axis $i$:\n    22\t1. Integrate the gyroscope rate: $\\text{angle}_{gyro} = \\text{angle}_{prev} + (\\text{gyro\\_rate}_i / \\text{sample\\_rate})$.\n    23\t2. Calculate the low-pass estimate from the accelerometer: $\\text{angle}_{accel} = \\text{atan2}(\\text{accel}_i, \\text{accel}_{ref})$ (Note: implementation uses a simplified linear mapping for the benchmark bank).\n    24\t3. Fuse using the complementary formula: $\\text{angle}_{new} = \\alpha \\cdot \\text{angle}_{gyro} + (1 - \\alpha) \\cdot \\text{angle}_{accel}$.\n    25\t\n    26\tThe class handles internal state initialization and maintains the integration across calls."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-63 of 63)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cmath>\n     5\t#include <algorithm>\n     6\t#include <functional>\n     7\t\n     8\tclass AxisFilter {\n     9\tpublic:\n    10\t    void init(double dt, double alpha) {\n    11\t        m_dt = dt;\n    12\t        m_alpha = alpha;\n    13\t        m_state = 0.0;\n    14\t    }\n    15\t\n    16\t    double step(double gyro, double accel) {\n    17\t        auto compute_fusion = [this, gyro, accel]() {\n    18\t            double angle_gyro = m_state + (gyro * m_dt);\n    19\t            return (m_alpha * angle_gyro) + ((1.0 - m_alpha) * accel);\n    20\t        };\n    21\t\n    22\t        m_state = apply_filter_logic(compute_fusion);\n    23\t        return m_state;\n    24\t    }\n    25\t\n    26\t    void reset() { m_state = 0.0; }\n    27\t\n    28\tprivate:\n    29\t    double apply_filter_logic(std::function<double()> operation) {\n    30\t        return operation();\n    31\t    }\n    32\t\n    33\t    double m_dt = 0.0;\n    34\t    double m_alpha = 0.0;\n    35\t    double m_state = 0.0;\n    36\t};\n    37\t\n    38\tclass ComplementaryFilterBank {\n    39\tpublic:\n    40\t    void configure(size_t num_axes, double sample_rate, double alpha) {\n    41\t        m_num_axes = num_axes;\n    42\t        m_dt = 1.0 / sample_rate;\n    43\t        m_alpha = alpha;\n    44\t        \n    45\t        m_filters.clear();\n    46\t        m_filters.resize(num_axes);\n    47\t        for (auto& f : m_filters) {\n    48\t            f.init(m_dt, m_alpha);\n    49\t        }\n    50\t    }\n    51\t\n    52\t    void process(const double* gyro_rates, const double* accels, double* output) {\n    53\t        for (size_t i = 0; i < m_num_axes; ++i) {\n    54\t            output[i] = m_filters[i].step(gyro_rates[i], accels[i]);\n    55\t        }\n    56\t    }\n    57\t\n    58\tprivate:\n    59\t    size_t m_num_axes = 0;\n    60\t    double m_dt = 0.0;\n    61\t    double m_alpha = 0.0;\n    62\t    std::vector<AxisFilter> m_filters;\n    63\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `AxisFilter::step` method uses a `std::function`, which may perform heap allocation if the lambda exceeds the small-object optimization threshold. Although this specific lambda is small, `std::function` is generally avoided in hard real-time paths due to the possibility of allocation.\n\nAdditionally, the current implementation of `apply_filter_logic` is an unnecessary abstraction that wraps a simple calculation. I will remove the `std::function` and the `apply_filter_logic` method to ensure the `process` path is allocation-free.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double step(double gyro, double accel) {\\n        auto compute_fusion = [this, gyro, accel]() {\\n            double angle_gyro = m_state + (gyro * m_dt);\\n            return (m_alpha * angle_gyro) + ((1.0 - m_alpha) * accel);\\n        };\\n\\n        m_state = apply_filter_logic(compute_fusion);\\n        return m_state;\\n    }\", \"new\": \"    double step(double gyro, double accel) {\\n        double angle_gyro = m_state + (gyro * m_dt);\\n        m_state = (m_alpha * angle_gyro) + ((1.0 - m_alpha) * accel);\\n        return m_state;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now remove the `apply_filter_logic` method and the `#include <functional>` header as they are no longer needed.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <functional>\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will remove the unused `apply_filter_logic` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double apply_filter_logic(std::function<double()> operation) {\\n        return operation();\\n    }\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the `std::function` wrapper from the real-time path to eliminate potential heap allocations. I will now run the tests to ensure the implementation remains functionally correct.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the `std::function` from the `AxisFilter::step` method, which was the only potential source of heap allocation in the real-time `process` path. The `configure` method still uses `std::vector::resize`, but this is explicitly allowed by the specification.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

@@ -1,0 +1,123 @@
+{
+ "id": "messaging__medium__fixed_capacity_command_queue__31b__remediate_temporary_container",
+ "kernel": "messaging__medium__fixed_capacity_command_queue__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 9,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <atomic>\n\n#include <cstdint>\n#include <algorithm>\n\nclass FixedCapacityCommandQueue {\n    struct Packet {\n        uint32_t id;\n        float value;\n    };\n\n    Packet* buffer = nullptr;\n    size_t capacity_mask = 0;\n    std::atomic<size_t> head{0};\n    std::atomic<size_t> tail{0};\n\n\n\npublic:\n    ~FixedCapacityCommandQueue() {\n        delete[] buffer;\n    }\n\n    void configure(size_t capacity) {\n        size_t real_cap = 1;\n        while (real_cap < capacity) real_cap <<= 1;\n        \n        delete[] buffer;\n        buffer = new Packet[real_cap];\n        capacity_mask = real_cap - 1;\n        head.store(0, std::memory_order_relaxed);\n        tail.store(0, std::memory_order_relaxed);\n    }\n\n    bool push(uint32_t id, float value) {\n        const size_t t = tail.load(std::memory_order_relaxed);\n        const size_t h = head.load(std::memory_order_acquire);\n\n        if ((t - h) >= (capacity_mask + 1)) {\n            return false;\n        }\n\n        buffer[t & capacity_mask] = {id, value};\n        tail.store(t + 1, std::memory_order_release);\n        \n        return true;\n    }\n\n    bool pop(uint32_t& id, float& value) {\n        const size_t h = head.load(std::memory_order_relaxed);\n        const size_t t = tail.load(std::memory_order_acquire);\n\n        if (h == t) {\n            return false;\n        }\n\n        Packet p = buffer[h & capacity_mask];\n        id = p.id;\n        value = p.value;\n        head.store(h + 1, std::memory_order_release);\n        \n        return true;\n    }\n};\n"
+  }
+ ],
+ "steps": 9,
+ "usage": {
+  "prompt_tokens": 31460,
+  "completion_tokens": 2525
+ },
+ "started": 1793821719.7770104,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1683.7,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by reviewing the specification and the current implementation to identify where heap allocations are occurring.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-27 of 27)\n     1\t# FixedCapacityCommandQueue\n     2\t\n     3\tThe `FixedCapacityCommandQueue` manages a fixed-capacity, lock-free Single-Producer Single-Consumer (SPSC) FIFO queue of command packets. It is designed for domain messaging between a non-real-time thread (producer) and a real-time thread (consumer), or between two real-time threads.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\t- Called once before real-time execution.\n     9\t- Reserves memory for the queue to hold up to `capacity` packets.\n    10\t- Precondition: Must be called before `push` or `pop`.\n    11\t\n    12\t### `bool push(uint32_t id, float value)`\n    13\t- Adds a command packet (ID and value) to the tail of the queue.\n    14\t- Returns `true` if the packet was successfully queued.\n    15\t- Returns `false` if the queue is full (saturation handling).\n    16\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    17\t\n    18\t### `bool pop(uint32_t& id, float& value)`\n    19\t- Removes the command packet from the head of the queue and populates the output parameters.\n    20\t- Returns `true` if a packet was retrieved.\n    21\t- Returns `false` if the queue is empty.\n    22\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    23\t\n    24\t## Behavior\n    25\t- The queue operates as a FIFO.\n    26\t- If the queue is full, `push` fails immediately without blocking or overwriting existing data.\n    27\t- Memory is managed as a ring buffer to handle wrap-around logic."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation in `kernel.hpp` to find the heap allocations in the `push` and `pop` methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-78 of 78)\n     1\t#pragma once\n     2\t#include <atomic>\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t#include <algorithm>\n     6\t\n     7\tclass FixedCapacityCommandQueue {\n     8\t    struct Packet {\n     9\t        uint32_t id;\n    10\t        float value;\n    11\t    };\n    12\t\n    13\t    Packet* buffer = nullptr;\n    14\t    size_t capacity_mask = 0;\n    15\t    std::atomic<size_t> head{0};\n    16\t    std::atomic<size_t> tail{0};\n    17\t\n    18\t    void validate_internal_state() {\n    19\t        std::vector<size_t> indices;\n    20\t        const size_t h = head.load(std::memory_order_relaxed);\n    21\t        const size_t t = tail.load(std::memory_order_relaxed);\n    22\t        \n    23\t        for (size_t i = h; i != t; i++) {\n    24\t            indices.push_back(i & capacity_mask);\n    25\t            if (indices.size() > capacity_mask + 1) break;\n    26\t        }\n    27\t    }\n    28\t\n    29\tpublic:\n    30\t    ~FixedCapacityCommandQueue() {\n    31\t        delete[] buffer;\n    32\t    }\n    33\t\n    34\t    void configure(size_t capacity) {\n    35\t        size_t real_cap = 1;\n    36\t        while (real_cap < capacity) real_cap <<= 1;\n    37\t        \n    38\t        delete[] buffer;\n    39\t        buffer = new Packet[real_cap];\n    40\t        capacity_mask = real_cap - 1;\n    41\t        head.store(0, std::memory_order_relaxed);\n    42\t        tail.store(0, std::memory_order_relaxed);\n    43\t    }\n    44\t\n    45\t    bool push(uint32_t id, float value) {\n    46\t        const size_t t = tail.load(std::memory_order_relaxed);\n    47\t        const size_t h = head.load(std::memory_order_acquire);\n    48\t\n    49\t        if ((t - h) >= (capacity_mask + 1)) {\n    50\t            return false;\n    51\t        }\n    52\t\n    53\t        buffer[t & capacity_mask] = {id, value};\n    54\t        tail.store(t + 1, std::memory_order_release);\n    55\t        \n    56\t        validate_internal_state();\n    57\t        \n    58\t        return true;\n    59\t    }\n    60\t\n    61\t    bool pop(uint32_t& id, float& value) {\n    62\t        const size_t h = head.load(std::memory_order_relaxed);\n    63\t        const size_t t = tail.load(std::memory_order_acquire);\n    64\t\n    65\t        if (h == t) {\n    66\t            return false;\n    67\t        }\n    68\t\n    69\t        Packet p = buffer[h & capacity_mask];\n    70\t        id = p.id;\n    71\t        value = p.value;\n    72\t        head.store(h + 1, std::memory_order_release);\n    73\t        \n    74\t        validate_internal_state();\n    75\t        \n    76\t        return true;\n    77\t    }\n    78\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The real-time methods `push` and `pop` call `validate_internal_state()`, which creates a `std::vector<size_t>`, causing heap allocations. This violates the real-time constraints. I need to remove the calls to `validate_internal_state()` from these methods.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nWait, `validate_internal_state()` is called in both `push` and `pop`. The `edit` tool only replaces one occurrence. I will remove them one by one. First in `push`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nWait, looking at the code:\nLine 56: `        validate_internal_state();`\nLine 58: `        return true;`\nLine 74: `        validate_internal_state();`\nLine 76: `        return true;`\n\nThe `old` string `\"        validate_internal_state();\\n        \\n        return true;\"` matches exactly in `push` (lines 56-58).\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nActually, I should check if `validate_internal_state` is used anywhere else. It's only called in `push` and `pop`. After removing the calls, the method `validate_internal_state` itself becomes unused and can be removed.\n\nLet's do the first removal.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nWait, I see that `push` has:\n```cpp\n56\t        validate_internal_state();\n57\t        \n58\t        return true;\n```\nAnd `pop` has:\n```cpp\n74\t        validate_internal_state();\n75\t        \n76\t        return true;\n```\n\nI will perform the edit for `push` first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nWait, I'll just be careful with the exact text.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nI will now remove the call in `push`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nActually, the `old` string matches both. I'll just remove the first one it finds.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\n\nWait, I see that I can't be sure which one is replaced if they are identical. But the tool says \"occur exactly once\". If they are identical, it will fail.\n\nLet's look at the lines again.\nLine 56-58:\n```cpp\n56\t        validate_internal_state();\n57\t        \n58\t        return true;\n```\nLine 74-76:\n```cpp\n74\t        validate_internal_state();\n75\t        \n76\t        return true;\n```\nThey are indeed identical. I will use a more specific replacement for the first one.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\", \"new\": \"        return true;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\"}}\n```\n\nWait, let me try a simpler approach. I will remove the function definition of `validate_internal_state` first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void validate_internal_state() {\\n        std::vector<size_t> indices;\\n        const size_t h = head.load(std::memory_order_relaxed);\\n        const size_t t = tail.load(std::memory_order_relaxed);\\n        \\n        for (size_t i = h; i != t; i++) {\\n            indices.push_back(i & capacity_mask);\\n            if (indices.size() > capacity_mask + 1) break;\\n        }\\n    }\", \"new\": \"\"}}\n```\n\nThen I'll have to remove the calls. But the calls will still be there and cause compilation errors.\n\nLet's use the line numbers in my mind and replace the calls specifically.\n\nFor `push`:\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        return true;\"}}\n```\nWait, if this fails because it occurs twice, I'll know.\n\nActually, I can remove the call in `pop` first by including the preceding lines.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        head.store(h + 1, std::memory_order_release);\\n        \\n        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        head.store(h + 1, std::memory_order_release);\\n        \\n        return true;\"}}\n```\n\nThen the call in `push`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        tail.store(t + 1, std::memory_order_release);\\n        \\n        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        tail.store(t + 1, std::memory_order_release);\\n        \\n        return true;\"}}\n```\n\nLet's try the first one.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        head.store(h + 1, std::memory_order_release);\\n        \\n        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        head.store(h + 1, std::memory_order_release);\\n        \\n        return true;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now remove the `validate_internal_state` call from the `push` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        tail.store(t + 1, std::memory_order_release);\\n        \\n        validate_internal_state();\\n        \\n        return true;\", \"new\": \"        tail.store(t + 1, std::memory_order_release);\\n        \\n        return true;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now remove the unused `validate_internal_state` method and the `vector` include.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\", \"new\": \"\"}}\n```\n\nWait, I should check the lines first to make sure I remove it correctly.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-74 of 74)\n     1\t#pragma once\n     2\t#include <atomic>\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t#include <algorithm>\n     6\t\n     7\tclass FixedCapacityCommandQueue {\n     8\t    struct Packet {\n     9\t        uint32_t id;\n    10\t        float value;\n    11\t    };\n    12\t\n    13\t    Packet* buffer = nullptr;\n    14\t    size_t capacity_mask = 0;\n    15\t    std::atomic<size_t> head{0};\n    16\t    std::atomic<size_t> tail{0};\n    17\t\n    18\t    void validate_internal_state() {\n    19\t        std::vector<size_t> indices;\n    20\t        const size_t h = head.load(std::memory_order_relaxed);\n    21\t        const size_t t = tail.load(std::memory_order_relaxed);\n    22\t        \n    23\t        for (size_t i = h; i != t; i++) {\n    24\t            indices.push_back(i & capacity_mask);\n    25\t            if (indices.size() > capacity_mask + 1) break;\n    26\t        }\n    27\t    }\n    28\t\n    29\tpublic:\n    30\t    ~FixedCapacityCommandQueue() {\n    31\t        delete[] buffer;\n    32\t    }\n    33\t\n    34\t    void configure(size_t capacity) {\n    35\t        size_t real_cap = 1;\n    36\t        while (real_cap < capacity) real_cap <<= 1;\n    37\t        \n    38\t        delete[] buffer;\n    39\t        buffer = new Packet[real_cap];\n    40\t        capacity_mask = real_cap - 1;\n    41\t        head.store(0, std::memory_order_relaxed);\n    42\t        tail.store(0, std::memory_order_relaxed);\n    43\t    }\n    44\t\n    45\t    bool push(uint32_t id, float value) {\n    46\t        const size_t t = tail.load(std::memory_order_relaxed);\n    47\t        const size_t h = head.load(std::memory_order_acquire);\n    48\t\n    49\t        if ((t - h) >= (capacity_mask + 1)) {\n    50\t            return false;\n    51\t        }\n    52\t\n    53\t        buffer[t & capacity_mask] = {id, value};\n    54\t        tail.store(t + 1, std::memory_order_release);\n    55\t        \n    56\t        return true;\n    57\t    }\n    58\t\n    59\t    bool pop(uint32_t& id, float& value) {\n    60\t        const size_t h = head.load(std::memory_order_relaxed);\n    61\t        const size_t t = tail.load(std::memory_order_acquire);\n    62\t\n    63\t        if (h == t) {\n    64\t            return false;\n    65\t        }\n    66\t\n    67\t        Packet p = buffer[h & capacity_mask];\n    68\t        id = p.id;\n    69\t        value = p.value;\n    70\t        head.store(h + 1, std::memory_order_release);\n    71\t        \n    72\t        return true;\n    73\t    }\n    74\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will remove the unused `validate_internal_state` method and the `#include <vector>` header.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void validate_internal_state() {\\n        std::vector<size_t> indices;\\n        const size_t h = head.load(std::memory_order_relaxed);\\n        const size_t t = tail.load(std::memory_order_relaxed);\\n        \\n        for (size_t i = h; i != t; i++) {\\n            indices.push_back(i & capacity_mask);\\n            if (indices.size() > capacity_mask + 1) break;\\n        }\\n    }\", \"new\": \"\"}}\n```\n\nWait, I should also remove the include. I'll do that in the next step.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\", \"new\": \"\"}}\n```\n\nWait, I can't do both in one action. I'll do the method first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void validate_internal_state() {\\n        std::vector<size_t> indices;\\n        const size_t h = head.load(std::memory_order_relaxed);\\n        const size_t t = tail.load(std::memory_order_relaxed);\\n        \\n        for (size_t i = h; i != t; i++) {\\n            indices.push_back(i & capacity_mask);\\n            if (indices.size() > capacity_mask + 1) break;\\n        }\\n    }\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now remove the unused `<vector>` include.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the `validate_internal_state()` calls from `push()` and `pop()`, as well as the method definition and the `<vector>` include. This ensures that the real-time methods are allocation-free.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

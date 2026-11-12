@@ -1,0 +1,142 @@
+{
+ "id": "estimation__hard__weighted_moving_average_filter__31b__remediate_copy_by_value",
+ "kernel": "estimation__hard__weighted_moving_average_filter__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "estimation",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 0,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 1200,
+     "allocs": 1200,
+     "bytes": 48000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1200
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <numeric>\n#include <algorithm>\n\nenum class WeightMode {\n    Linear,\n    Gaussian\n};\n\nnamespace detail {\n    template <typename T>\n    class CircularBuffer {\n    public:\n        void reserve(size_t size) {\n            data_.assign(size, T{});\n            capacity_ = size;\n        }\n        void push(T val) {\n            data_[head_] = val;\n            head_ = (head_ + 1) % capacity_;\n            if (count_ < capacity_) ++count_;\n        }\n        T operator[](size_t i) const {\n            int idx = static_cast<int>(head_) - 1 - static_cast<int>(i);\n            while (idx < 0) idx += capacity_;\n            return data_[idx % capacity_];\n        }\n        void clear() {\n            head_ = 0;\n            count_ = 0;\n        }\n        size_t size() const { return count_; }\n        size_t capacity() const { return capacity_; }\n\n    private:\n        std::vector<T> data_;\n        size_t head_ = 0;\n        size_t count_ = 0;\n        size_t capacity_ = 0;\n    };\n\n    class WeightGenerator {\n    public:\n        void setup(size_t size, WeightMode mode, float sigma) {\n            weights_.clear();\n            weights_.reserve(size);\n            for (size_t i = 0; i < size; ++i) {\n                if (mode == WeightMode::Linear) {\n                    weights_.push_back(static_cast<float>(size - i));\n                } else {\n                    float x = static_cast<float>(i);\n                    weights_.push_back(std::exp(-(x * x) / (2.0f * sigma * sigma)));\n                }\n            }\n        }\n\n        const std::vector<float>& get_weights() const {\n            return weights_;\n        }\n\n        float sum_of_weights(size_t count) const {\n            float sum = 0.0f;\n            for (size_t i = 0; i < count; ++i) sum += weights_[i];\n            return sum;\n        }\n    private:\n        std::vector<float> weights_;\n    };\n\n    struct CalculationContext {\n        float weighted_sum = 0.0f;\n        float weight_total = 0.0f;\n    };\n\n    CalculationContext compute_window(const CircularBuffer<float>& buffer, const std::vector<float>& weights) {\n        CalculationContext ctx;\n        size_t n = buffer.size();\n        for (size_t i = 0; i < n; ++i) {\n            float w = weights[i];\n            ctx.weighted_sum += buffer[i] * w;\n            ctx.weight_total += w;\n        }\n        return ctx;\n    }\n}\n\nclass WeightedMovingAverage {\npublic:\n    void configure(size_t window_size, WeightMode mode, float sigma = 1.0f) {\n        buffer_.reserve(window_size);\n        weights_.setup(window_size, mode, sigma);\n    }\n\n    void push(float sample) {\n        buffer_.push(sample);\n    }\n\n    float process() {\n        size_t n = buffer_.size();\n        if (n == 0) return 0.0f;\n\n        auto weights_snapshot = weights_.get_weights();\n        auto result = detail::compute_window(buffer_, weights_snapshot);\n\n        return result.weighted_sum / result.weight_total;\n    }\n\n    void reset() {\n        buffer_.clear();\n    }\n\nprivate:\n    detail::CircularBuffer<float> buffer_;\n    detail::WeightGenerator weights_;\n};\n"
+  },
+  {
+   "round": 1,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <numeric>\n#include <algorithm>\n\nenum class WeightMode {\n    Linear,\n    Gaussian\n};\n\nnamespace detail {\n    template <typename T>\n    class CircularBuffer {\n    public:\n        void reserve(size_t size) {\n            data_.assign(size, T{});\n            capacity_ = size;\n        }\n        void push(T val) {\n            data_[head_] = val;\n            head_ = (head_ + 1) % capacity_;\n            if (count_ < capacity_) ++count_;\n        }\n        T operator[](size_t i) const {\n            int idx = static_cast<int>(head_) - 1 - static_cast<int>(i);\n            while (idx < 0) idx += capacity_;\n            return data_[idx % capacity_];\n        }\n        void clear() {\n            head_ = 0;\n            count_ = 0;\n        }\n        size_t size() const { return count_; }\n        size_t capacity() const { return capacity_; }\n\n    private:\n        std::vector<T> data_;\n        size_t head_ = 0;\n        size_t count_ = 0;\n        size_t capacity_ = 0;\n    };\n\n    class WeightGenerator {\n    public:\n        void setup(size_t size, WeightMode mode, float sigma) {\n            weights_.clear();\n            weights_.reserve(size);\n            for (size_t i = 0; i < size; ++i) {\n                if (mode == WeightMode::Linear) {\n                    weights_.push_back(static_cast<float>(size - i));\n                } else {\n                    float x = static_cast<float>(i);\n                    weights_.push_back(std::exp(-(x * x) / (2.0f * sigma * sigma)));\n                }\n            }\n        }\n\n        const std::vector<float>& get_weights() const {\n            return weights_;\n        }\n\n        float sum_of_weights(size_t count) const {\n            float sum = 0.0f;\n            for (size_t i = 0; i < count; ++i) sum += weights_[i];\n            return sum;\n        }\n    private:\n        std::vector<float> weights_;\n    };\n\n    struct CalculationContext {\n        float weighted_sum = 0.0f;\n        float weight_total = 0.0f;\n    };\n\n    CalculationContext compute_window(const CircularBuffer<float>& buffer, const std::vector<float>& weights) {\n        CalculationContext ctx;\n        size_t n = buffer.size();\n        for (size_t i = 0; i < n; ++i) {\n            float w = weights[i];\n            ctx.weighted_sum += buffer[i] * w;\n            ctx.weight_total += w;\n        }\n        return ctx;\n    }\n}\n\nclass WeightedMovingAverage {\npublic:\n    void configure(size_t window_size, WeightMode mode, float sigma = 1.0f) {\n        buffer_.reserve(window_size);\n        weights_.setup(window_size, mode, sigma);\n    }\n\n    void push(float sample) {\n        buffer_.push(sample);\n    }\n\n    float process() {\n        size_t n = buffer_.size();\n        if (n == 0) return 0.0f;\n\n        const auto& weights_snapshot = weights_.get_weights();\n        auto result = detail::compute_window(buffer_, weights_snapshot);\n\n        return result.weighted_sum / result.weight_total;\n    }\n\n    void reset() {\n        buffer_.clear();\n    }\n\nprivate:\n    detail::CircularBuffer<float> buffer_;\n    detail::WeightGenerator weights_;\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 23314,
+  "completion_tokens": 1933
+ },
+ "started": 1793815664.9583235,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 1,
+ "seconds": 1044.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the current implementation of `kernel.hpp` and the requirements in `spec.md` to identify where heap allocations are occurring in the real-time methods and how to move those allocations to the `configure` method.\n\nFirst, I will read `spec.md`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-29 of 29)\n     1\t# WeightedMovingAverage\n     2\t\n     3\tThe `WeightedMovingAverage` class implements a signal smoothing filter that calculates a weighted average of the last $N$ samples. It supports two weighting modes: Linear and Gaussian.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### Configuration\n     8\t- `void configure(size_t window_size, WeightMode mode, float sigma = 1.0f)`\n     9\t  - `window_size`: The number of samples to consider for the average.\n    10\t  - `mode`: Either `WeightMode::Linear` or `WeightMode::Gaussian`.\n    11\t  - `sigma`: Used only for Gaussian weights to control the bell curve width.\n    12\t  - **Precondition**: Must be called before any real-time methods.\n    13\t\n    14\t### Real-Time Methods\n    15\t- `void push(float sample)`\n    16\t  - Adds a new sample to the circular buffer.\n    17\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    18\t- `float process()`\n    19\t  - Computes the weighted average of the current window.\n    20\t  - If the buffer is not yet full, it computes the average of available samples, normalizing weights accordingly.\n    21\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    22\t- `void reset()`\n    23\t  - Clears the buffer and resets the internal state.\n    24\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    25\t\n    26\t## Behavior\n    27\t- **Linear Mode**: Weights decrease linearly from the most recent sample (weight = $W$) to the oldest (weight = $W - (N-1)$).\n    28\t- **Gaussian Mode**: Weights follow a Gaussian distribution centered at the most recent sample.\n    29\t- **Normalization**: The filter always divides the weighted sum by the sum of weights actually used (handling the warm-up period where the buffer is partially full)."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation of `kernel.hpp` to identify the heap allocations in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-118 of 118)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cmath>\n     5\t#include <numeric>\n     6\t#include <algorithm>\n     7\t\n     8\tenum class WeightMode {\n     9\t    Linear,\n    10\t    Gaussian\n    11\t};\n    12\t\n    13\tnamespace detail {\n    14\t    template <typename T>\n    15\t    class CircularBuffer {\n    16\t    public:\n    17\t        void reserve(size_t size) {\n    18\t            data_.assign(size, T{});\n    19\t            capacity_ = size;\n    20\t        }\n    21\t        void push(T val) {\n    22\t            data_[head_] = val;\n    23\t            head_ = (head_ + 1) % capacity_;\n    24\t            if (count_ < capacity_) ++count_;\n    25\t        }\n    26\t        T operator[](size_t i) const {\n    27\t            int idx = static_cast<int>(head_) - 1 - static_cast<int>(i);\n    28\t            while (idx < 0) idx += capacity_;\n    29\t            return data_[idx % capacity_];\n    30\t        }\n    31\t        void clear() {\n    32\t            head_ = 0;\n    33\t            count_ = 0;\n    34\t        }\n    35\t        size_t size() const { return count_; }\n    36\t        size_t capacity() const { return capacity_; }\n    37\t\n    38\t    private:\n    39\t        std::vector<T> data_;\n    40\t        size_t head_ = 0;\n    41\t        size_t count_ = 0;\n    42\t        size_t capacity_ = 0;\n    43\t    };\n    44\t\n    45\t    class WeightGenerator {\n    46\t    public:\n    47\t        void setup(size_t size, WeightMode mode, float sigma) {\n    48\t            weights_.clear();\n    49\t            weights_.reserve(size);\n    50\t            for (size_t i = 0; i < size; ++i) {\n    51\t                if (mode == WeightMode::Linear) {\n    52\t                    weights_.push_back(static_cast<float>(size - i));\n    53\t                } else {\n    54\t                    float x = static_cast<float>(i);\n    55\t                    weights_.push_back(std::exp(-(x * x) / (2.0f * sigma * sigma)));\n    56\t                }\n    57\t            }\n    58\t        }\n    59\t\n    60\t        std::vector<float> get_weights() const {\n    61\t            return weights_;\n    62\t        }\n    63\t\n    64\t        float sum_of_weights(size_t count) const {\n    65\t            float sum = 0.0f;\n    66\t            for (size_t i = 0; i < count; ++i) sum += weights_[i];\n    67\t            return sum;\n    68\t        }\n    69\t    private:\n    70\t        std::vector<float> weights_;\n    71\t    };\n    72\t\n    73\t    struct CalculationContext {\n    74\t        float weighted_sum = 0.0f;\n    75\t        float weight_total = 0.0f;\n    76\t    };\n    77\t\n    78\t    CalculationContext compute_window(const CircularBuffer<float>& buffer, const std::vector<float>& weights) {\n    79\t        CalculationContext ctx;\n    80\t        size_t n = buffer.size();\n    81\t        for (size_t i = 0; i < n; ++i) {\n    82\t            float w = weights[i];\n    83\t            ctx.weighted_sum += buffer[i] * w;\n    84\t            ctx.weight_total += w;\n    85\t        }\n    86\t        return ctx;\n    87\t    }\n    88\t}\n    89\t\n    90\tclass WeightedMovingAverage {\n    91\tpublic:\n    92\t    void configure(size_t window_size, WeightMode mode, float sigma = 1.0f) {\n    93\t        buffer_.reserve(window_size);\n    94\t        weights_.setup(window_size, mode, sigma);\n    95\t    }\n    96\t\n    97\t    void push(float sample) {\n    98\t        buffer_.push(sample);\n    99\t    }\n   100\t\n   101\t    float process() {\n   102\t        size_t n = buffer_.size();\n   103\t        if (n == 0) return 0.0f;\n   104\t\n   105\t        auto weights_snapshot = weights_.get_weights();\n   106\t        auto result = detail::compute_window(buffer_, weights_snapshot);\n   107\t\n   108\t        return result.weighted_sum / result.weight_total;\n   109\t    }\n   110\t\n   111\t    void reset() {\n   112\t        buffer_.clear();\n   113\t    }\n   114\t\n   115\tprivate:\n   116\t    detail::CircularBuffer<float> buffer_;\n   117\t    detail::WeightGenerator weights_;\n   118\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `process()` method currently calls `weights_.get_weights()`, which returns a `std::vector<float>` by value, causing a heap allocation in every call. Additionally, `detail::compute_window` takes a `std::vector<float>` by value (though it was passed a snapshot).\n\nI will modify `WeightGenerator` to provide a way to access the weights without copying the vector and update `compute_window` to take a reference or a span. In C++20, `std::span` is ideal, but since I only have `<vector>`, `<cmath>`, `<numeric>`, and `<algorithm>`, I'll use a const reference to the vector.\n\nFirst, I'll update `WeightGenerator` to remove `get_weights()` and add a method to get a reference to the weights. Then I'll update `compute_window` and `process()`.\n\nActually, `WeightGenerator` can just have a public member or a getter for the vector.\n\nWait, looking at `compute_window`:\n```cpp\nCalculationContext compute_window(const CircularBuffer<float>& buffer, const std::vector<float>& weights) {\n```\nIt already takes `const std::vector<float>& weights`. The problem is `weights_.get_weights()` returning a copy.\n\nI will:\n1. Modify `WeightGenerator::get_weights()` to return `const std::vector<float>&`.\n2. Or better, just provide a getter.\n\nLet's check `WeightGenerator` again.\n\n```cpp\n    class WeightGenerator {\n    public:\n        void setup(size_t size, WeightMode mode, float sigma) {\n            weights_.clear();\n            weights_.reserve(size);\n            for (size_t i = 0; i < size; ++i) {\n                if (mode == WeightMode::Linear) {\n                    weights_.push_back(static_cast<float>(size - i));\n                } else {\n                    float x = static_cast<float>(i);\n                    weights_.push_back(std::exp(-(x * x) / (2.0f * sigma * sigma)));\n                }\n            }\n        }\n\n        std::vector<float> get_weights() const {\n            return weights_;\n        }\n// ...\n    private:\n        std::vector<float> weights_;\n    };\n```\n\nI'll change `get_weights()` to return `const std::vector<float>&`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::vector<float> get_weights() const {\\n            return weights_;\\n        }\", \"new\": \"        const std::vector<float>& get_weights() const {\\n            return weights_;\\n        }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the test to verify that the change has fixed the allocation issue without breaking functionality.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have replaced the `get_weights()` method in `WeightGenerator` to return a `const std::vector<float>&` instead of a copy, eliminating the heap allocation in the `process()` method.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "Your kernel.hpp was checked with malloc-guard around every real-time call of the\nhidden test. The real-time methods still allocate heap memory:\n\n1200 of 2402 real-time calls allocated, 1200 allocations, 48000 bytes in total.\nThe allocating code is inlined into the test's real-time calls; look at the real-time methods of kernel.hpp and everything they call.\n\nFix this without breaking the functional behavior, then submit again. You have the same\nactions as before. Repair round 1 of 3."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to re-examine the real-time methods in `kernel.hpp` and the helper classes to see what else could be causing allocations.\n\nThe real-time methods are `push(float sample)`, `process()`, and `reset()`.\n- `push(float sample)` calls `buffer_.push(sample)`.\n- `process()` calls `buffer_.size()`, `weights_.get_weights()`, and `detail::compute_window`.\n- `reset()` calls `buffer_.clear()`.\n\nLooking at `CircularBuffer::push`:\n```cpp\n        void push(T val) {\n            data_[head_] = val;\n            head_ = (head_ + 1) % capacity_;\n            if (count_ < capacity_) ++count_;\n        }\n```\nIt uses `std::vector<T> data_`. If `data_` is correctly sized in `reserve`, `operator[]` doesn't allocate.\n`reserve` uses `data_.assign(size, T{})`. `assign` on a vector usually reallocates. This is called in `configure`, which is allowed.\n\nWait, looking at `CircularBuffer::operator[]`:\n```cpp\n        T operator[](size_t i) const {\n            int idx = static_cast<int>(head_) - 1 - static_cast<int>(i);\n            while (idx < 0) idx += capacity_;\n            return data_[idx % capacity_];\n        }\n```\nThis looks fine.\n\nWhat about `detail::compute_window`?\n```cpp\n    CalculationContext compute_window(const CircularBuffer<float>& buffer, const std::vector<float>& weights) {\n        CalculationContext ctx;\n        size_t n = buffer.size();\n        for (size_t i = 0; i < n; ++i) {\n            float w = weights[i];\n            ctx.weighted_sum += buffer[i] * w;\n            ctx.weight_total += w;\n        }\n        return ctx;\n    }\n```\n`CalculationContext` is a simple struct.\n\nWait, look at `CircularBuffer::reserve`:\n```cpp\n        void reserve(size_t size) {\n            data_.assign(size, T{});\n            capacity_ = size;\n        }\n```\nThis is called in `configure`.\n\nLet's look at the `CircularBuffer` again.\nIs there any other place where `std::vector` might be growing?\nIn `WeightGenerator::setup`:\n```cpp\n        void setup(size_t size, WeightMode mode, float sigma) {\n            weights_.clear();\n            weights_.reserve(size);\n            for (size_t i = 0; i < size; ++i) {\n                // ...\n                weights_.push_back(...);\n            }\n        }\n```\nThis is also called in `configure`.\n\nIs it possible that `std::vector<float> weights_` is being copied somewhere else?\nIn `process()`:\n```cpp\n    float process() {\n        size_t n = buffer_.size();\n        if (n == 0) return 0.0f;\n\n        auto weights_snapshot = weights_.get_weights();\n        auto result = detail::compute_window(buffer_, weights_snapshot);\n\n        return result.weighted_sum / result.weight_total;\n    }\n```\n`weights_.get_weights()` now returns `const std::vector<float>&`.\n`auto weights_snapshot` will be a reference to the vector.\n`detail::compute_window` takes `const std::vector<float>&`.\n\nWait, I see it!\n```cpp\n        auto weights_snapshot = weights_.get_weights();\n```\nSince `get_weights()` returns `const std::vector<float>&`, `auto weights_snapshot` will deduce to `std::vector<float>` (a copy!) because `auto` doesn't deduce references unless you use `auto&`.\n\nThat's the allocation!\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        auto weights_snapshot = weights_.get_weights();\", \"new\": \"        const auto& weights_snapshot = weights_.get_weights();\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the test to verify that using a reference instead of a copy for the weights snapshot eliminates the heap allocation in the `process()` method.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have identified that `auto weights_snapshot = weights_.get_weights();` was creating a copy of the `std::vector<float>`, resulting in a heap allocation during every call to `process()`. I have changed it to `const auto& weights_snapshot = weights_.get_weights();` to use a reference instead.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

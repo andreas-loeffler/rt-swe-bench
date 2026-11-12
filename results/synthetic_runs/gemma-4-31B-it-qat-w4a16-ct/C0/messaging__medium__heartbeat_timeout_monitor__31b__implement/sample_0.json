@@ -1,0 +1,99 @@
+{
+ "id": "messaging__medium__heartbeat_timeout_monitor__31b__implement",
+ "kernel": "messaging__medium__heartbeat_timeout_monitor__31b",
+ "kind": "implement",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1816,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstddef>\n#include <vector>\n#include <limits>\n\nclass HeartbeatTimeoutMonitor {\npublic:\n    void configure(size_t num_channels, double timeout_seconds) {\n        m_timeout = timeout_seconds;\n        m_last_timestamps.assign(num_channels, -std::numeric_limits<double>::infinity());\n    }\n\n    void update(size_t channel_id, double timestamp) {\n        m_last_timestamps[channel_id] = timestamp;\n    }\n\n    bool is_channel_timed_out(size_t channel_id, double current_time) const {\n        double last_ts = m_last_timestamps[channel_id];\n        if (last_ts == -std::numeric_limits<double>::infinity()) {\n            return true;\n        }\n        return (current_time - last_ts) > m_timeout;\n    }\n\n    bool any_timed_out(double current_time) const {\n        for (size_t i = 0; i < m_last_timestamps.size(); ++i) {\n            if (is_channel_timed_out(i, current_time)) {\n                return true;\n            }\n        }\n        return false;\n    }\n\nprivate:\n    std::vector<double> m_last_timestamps;\n    double m_timeout = 0.0;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 8496,
+  "completion_tokens": 972
+ },
+ "started": 1793817465.1508372,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1191.9,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will start by reviewing the specification to understand the requirements for the `Kernel` class.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-24 of 24)\n     1\t# HeartbeatTimeoutMonitor\n     2\t\n     3\tThe `HeartbeatTimeoutMonitor` tracks the health of multiple communication channels by monitoring the arrival of heartbeat messages. It detects if any specific channel or any channel in general has failed to send a message within a specified timeout period.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t num_channels, double timeout_seconds)`\n     8\t- **Preconditions**: Called once before any real-time calls.\n     9\t- **Behavior**: Reserves memory to track `num_channels` channels and sets the timeout threshold.\n    10\t\n    11\t### `void update(size_t channel_id, double timestamp)`\n    12\t- **Preconditions**: `channel_id` must be within `[0, num_channels)`.\n    13\t- **Behavior**: Updates the last seen timestamp for the specified channel.\n    14\t- **Real-time constraint**: Must not allocate heap memory, throw, lock, or perform I/O.\n    15\t\n    16\t### `bool is_channel_timed_out(size_t channel_id, double current_time)`\n    17\t- **Preconditions**: `channel_id` must be within `[0, num_channels)`.\n    18\t- **Behavior**: Returns `true` if the difference between `current_time` and the last seen timestamp for `channel_id` exceeds `timeout_seconds`. If the channel has never received a message, it is considered timed out.\n    19\t- **Real-time constraint**: Must not allocate heap memory, throw, lock, or perform I/O.\n    20\t\n    21\t### `bool any_timed_out(double current_time)`\n    22\t- **Preconditions**: None.\n    23\t- **Behavior**: Returns `true` if at least one channel is currently timed out (including channels that have never received a message).\n    24\t- **Real-time constraint**: Must not allocate heap memory, throw, lock, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I will examine the current content of `kernel.hpp` to see the stub implementation.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-23 of 23)\n     1\t#pragma once\n     2\t#include <cstddef>\n     3\t\n     4\tclass HeartbeatTimeoutMonitor {\n     5\tpublic:\n     6\t    void configure(size_t num_channels, double timeout_seconds) {\n     7\t        // TODO: allocate buffers\n     8\t    }\n     9\t\n    10\t    void update(size_t channel_id, double timestamp) {\n    11\t        // TODO: update timestamp\n    12\t    }\n    13\t\n    14\t    bool is_channel_timed_out(size_t channel_id, double current_time) const {\n    15\t        // TODO: check timeout\n    16\t        return false;\n    17\t    }\n    18\t\n    19\t    bool any_timed_out(double current_time) const {\n    20\t        // TODO: check all channels\n    21\t        return false;\n    22\t    }\n    23\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to implement the logic described in `spec.md`.\n- `configure`: Allocate a vector (or similar) to store the last seen timestamps and store the timeout.\n- `update`: Store the timestamp for the given channel.\n- `is_channel_timed_out`: Check if `current_time - last_timestamp > timeout_seconds`. Handle the case where the channel has never received a message.\n- `any_timed_out`: Check if any channel is timed out.\n\nTo handle the \"never received a message\" case, I can initialize the timestamps to a very small value (e.g., negative infinity).\n\nSince `configure` is called once before real-time calls and `update`/`is_channel_timed_out`/`any_timed_out` must not allocate, I will use a `std::vector` and allocate it in `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstddef>\", \"new\": \"#include <cstddef>\\n#include <vector>\\n#include <limits>\"}}\n```\nfollowed by updating the class members and methods. Wait, I can't do multiple edits in one turn. I'll start with the includes.\n\nActually, I'll update the whole class in a few steps.\n\nFirst, add includes and private members.```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstddef>\", \"new\": \"#include <cstddef>\\n#include <vector>\\n#include <limits>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class HeartbeatTimeoutMonitor {\\npublic:\\n    void configure(size_t num_channels, double timeout_seconds) {\\n        // TODO: allocate buffers\\n    }\\n\\n    void update(size_t channel_id, double timestamp) {\\n        // TODO: update timestamp\\n    }\\n\\n    bool is_channel_timed_out(size_t channel_id, double current_time) const {\\n        // TODO: check timeout\\n        return false;\\n    }\\n\\n    bool any_timed_out(double current_time) const {\\n        // TODO: check all channels\\n        return false;\\n    }\\n};\", \"new\": \"class HeartbeatTimeoutMonitor {\\npublic:\\n    void configure(size_t num_channels, double timeout_seconds) {\\n        m_timeout = timeout_seconds;\\n        m_last_timestamps.assign(num_channels, -std::numeric_limits<double>::infinity());\\n    }\\n\\n    void update(size_t channel_id, double timestamp) {\\n        m_last_timestamps[channel_id] = timestamp;\\n    }\\n\\n    bool is_channel_timed_out(size_t channel_id, double current_time) const {\\n        double last_ts = m_last_timestamps[channel_id];\\n        if (last_ts == -std::numeric_limits<double>::infinity()) {\\n            return true;\\n        }\\n        return (current_time - last_ts) > m_timeout;\\n    }\\n\\n    bool any_timed_out(double current_time) const {\\n        for (size_t i = 0; i < m_last_timestamps.size(); ++i) {\\n            if (is_channel_timed_out(i, current_time)) {\\n                return true;\\n            }\\n        }\\n        return false;\\n    }\\n\\nprivate:\\n    std::vector<double> m_last_timestamps;\\n    double m_timeout = 0.0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

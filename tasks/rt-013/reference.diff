@@ -1,0 +1,72 @@
+diff --git a/gpio_controllers/include/gpio_controllers/gpio_command_controller.hpp b/gpio_controllers/include/gpio_controllers/gpio_command_controller.hpp
+index 561abcce..4ef6eeb7 100644
+--- a/gpio_controllers/include/gpio_controllers/gpio_command_controller.hpp
++++ b/gpio_controllers/include/gpio_controllers/gpio_command_controller.hpp
+@@ -97,6 +97,9 @@ protected:
+   realtime_tools::RealtimeThreadSafeBox<CmdType> rt_command_;
+   // save the last reference in case of unable to get value from box
+   CmdType gpio_commands_;
++  // Scratch space for "<group>/<interface>" lookups in update(); reserved in
++  // on_configure(). mutable: filled by the const apply_command()/apply_state_value().
++  mutable std::string interface_name_buffer_;
+ 
+   std::shared_ptr<rclcpp::Publisher<StateType>> gpio_state_publisher_{};
+   std::shared_ptr<realtime_tools::RealtimePublisher<StateType>> realtime_gpio_state_publisher_{};
+diff --git a/gpio_controllers/src/gpio_command_controller.cpp b/gpio_controllers/src/gpio_command_controller.cpp
+index 8ee414d7..a97bbc43 100644
+--- a/gpio_controllers/src/gpio_command_controller.cpp
++++ b/gpio_controllers/src/gpio_command_controller.cpp
+@@ -103,6 +103,7 @@ try
+   realtime_gpio_state_publisher_ =
+     std::make_shared<realtime_tools::RealtimePublisher<StateType>>(gpio_state_publisher_);
+   RCLCPP_INFO(get_node()->get_logger(), "configure successful");
++  interface_name_buffer_.reserve(256);
+   return CallbackReturn::SUCCESS;
+ }
+ catch (const std::exception & e)
+@@ -327,11 +328,9 @@ bool GpioCommandController::check_if_configured_interfaces_matches_received(
+ 
+ controller_interface::return_type GpioCommandController::update_gpios_commands()
+ {
+-  auto gpio_commands_op = rt_command_.try_get();
+-  if (gpio_commands_op.has_value())
+-  {
+-    gpio_commands_ = gpio_commands_op.value();
+-  }
++  // Copy the latest command into gpio_commands_ in place; the value-returning
++  // try_get() copies the whole message on every cycle.
++  rt_command_.try_get([this](const CmdType & msg) { gpio_commands_ = msg; });
+   if (gpio_commands_.interface_groups.empty() || gpio_commands_.interface_values.empty())
+   {
+     // no command received yet
+@@ -364,8 +363,13 @@ controller_interface::return_type GpioCommandController::update_gpios_commands()
+ void GpioCommandController::apply_command(
+   const CmdType & gpio_commands, std::size_t gpio_index, std::size_t command_interface_index) const
+ {
+-  const auto full_command_interface_name =
+-    gpio_commands.interface_groups[gpio_index] + '/' +
++  // Build "<group>/<interface>" in a buffer reserved in on_configure(): a new
++  // std::string per interface and cycle allocates for names past the
++  // small-string limit.
++  auto & full_command_interface_name = interface_name_buffer_;
++  full_command_interface_name.assign(gpio_commands.interface_groups[gpio_index]);
++  full_command_interface_name += '/';
++  full_command_interface_name +=
+     gpio_commands.interface_values[gpio_index].interface_names[command_interface_index];
+ 
+   const auto & command_value =
+@@ -412,9 +416,11 @@ void GpioCommandController::update_gpios_states()
+ void GpioCommandController::apply_state_value(
+   StateType & state_msg, std::size_t gpio_index, std::size_t interface_index) const
+ {
+-  const auto interface_name =
+-    state_msg.interface_groups[gpio_index] + '/' +
+-    state_msg.interface_values[gpio_index].interface_names[interface_index];
++  // Same reusable buffer as apply_command(); see there.
++  auto & interface_name = interface_name_buffer_;
++  interface_name.assign(state_msg.interface_groups[gpio_index]);
++  interface_name += '/';
++  interface_name += state_msg.interface_values[gpio_index].interface_names[interface_index];
+   try
+   {
+     auto state_msg_interface_value_op =

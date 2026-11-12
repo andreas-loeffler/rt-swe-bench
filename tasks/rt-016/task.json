@@ -1,0 +1,15 @@
+{
+  "id": "rt-016",
+  "track": 1,
+  "source": "hand-written bug (forward_command_controller @ d71703b + rt-001 reference)",
+  "package": "forward_command_controller",
+  "probe": "task_rt_016_forward_order",
+  "issue": "issue.md",
+  "base_patch": "base.diff",
+  "files": [
+    "forward_command_controller/src/forward_controllers_base.cpp",
+    "forward_command_controller/include/forward_command_controller/forward_controllers_base.hpp"
+  ],
+  "warmup_cycles": 0,
+  "notes": "The bug is upstream's (see the ATTENTION comment in on_activate()); it shows when interfaces are assigned in another order than the joints parameter. base.diff = rt-001 reference. Reference: keep the ordered interfaces from on_activate(). Naive: look each interface up by name in update() with `const std::string name = ...` (copy, no reference), one allocation per joint and cycle."
+}

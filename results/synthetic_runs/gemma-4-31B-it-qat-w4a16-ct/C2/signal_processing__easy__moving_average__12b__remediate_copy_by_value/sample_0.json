@@ -1,0 +1,91 @@
+{
+ "id": "signal_processing__easy__moving_average__12b__remediate_copy_by_value",
+ "kernel": "signal_processing__easy__moving_average__12b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "signal_processing",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 500,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <numeric>\n#include <memory>\n\nclass MovingAverage {\npublic:\n    void configure(size_t window_size) {\n        window_size_ = window_size;\n        buffer_.resize(window_size_);\n        sum_ = 0.0;\n        count_ = 0;\n        head_ = 0;\n    }\n\n    double process(double sample) {\n        if (count_ < window_size_) {\n            buffer_[count_] = sample;\n            sum_ += sample;\n            count_++;\n        } else {\n            sum_ -= buffer_[head_];\n            buffer_[head_] = sample;\n            sum_ += sample;\n            head_ = (head_ + 1) % window_size_;\n        }\n        return sum_ / count_;\n    }\n\nprivate:\n    size_t window_size_ = 0;\n    std::vector<double> buffer_;\n    double sum_ = 0.0;\n    size_t count_ = 0;\n    size_t head_ = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 6477,
+  "completion_tokens": 529
+ },
+ "started": 1793818925.050299,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 905.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to examine the current implementation and the specification to identify where heap allocations are occurring in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-20 of 20)\n     1\t# MovingAverage\n     2\t\n     3\tComputes the arithmetic mean of a sliding window of samples.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t window_size)`\n     8\tInitializes the internal circular buffer. `window_size` must be greater than 0. This method may allocate memory.\n     9\t\n    10\t### `double process(double sample)`\n    11\tProcesses a new sample, updates the internal sliding window, and returns the current arithmetic mean. \n    12\t\n    13\t## Preconditions\n    14\t- `window_size` must be $\\ge 1$.\n    15\t- The `process` method is called on the real-time path and must not allocate memory, throw, lock, or perform I/O.\n    16\t\n    17\t## Behavior\n    18\t- If the buffer has fewer than `window_size` samples (at the beginning), the mean is calculated over the samples received so far.\n    19\t- Once the buffer is full, the mean is calculated over exactly `window_size` samples.\n    20\t- The implementation must use a circular buffer to ensure $O(1)$ time complexity per call."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I need to see the current implementation of `kernel.hpp` to find the allocations in `process`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-40 of 40)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <numeric>\n     4\t#include <memory>\n     5\t\n     6\tclass MovingAverage {\n     7\tpublic:\n     8\t    void configure(size_t window_size) {\n     9\t        window_size_ = window_size;\n    10\t        buffer_.resize(window_size_);\n    11\t        sum_ = 0.0;\n    12\t        count_ = 0;\n    13\t        head_ = 0;\n    14\t    }\n    15\t\n    16\t    double process(double sample) {\n    17\t        std::vector<double> current_buffer = buffer_;\n    18\t        \n    19\t        if (count_ < window_size_) {\n    20\t            current_buffer[count_] = sample;\n    21\t            sum_ += sample;\n    22\t            count_++;\n    23\t        } else {\n    24\t            sum_ -= current_buffer[head_];\n    25\t            current_buffer[head_] = sample;\n    26\t            sum_ += sample;\n    27\t            head_ = (head_ + 1) % window_size_;\n    28\t        }\n    29\t        \n    30\t        buffer_ = current_buffer;\n    31\t        return sum_ / count_;\n    32\t    }\n    33\t\n    34\tprivate:\n    35\t    size_t window_size_ = 0;\n    36\t    std::vector<double> buffer_;\n    37\t    double sum_ = 0.0;\n    38\t    size_t count_ = 0;\n    39\t    size_t head_ = 0;\n    40\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `process` method is creating a copy of the buffer (`std::vector<double> current_buffer = buffer_;`) and then assigning it back (`buffer_ = current_buffer;`). This causes heap allocations and deallocations on every call to `process`.\n\nI need to modify `process` to update the `buffer_` in-place.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double process(double sample) {\\n        std::vector<double> current_buffer = buffer_;\\n        \\n        if (count_ < window_size_) {\\n            current_buffer[count_] = sample;\\n            sum_ += sample;\\n            count_++;\\n        } else {\\n            sum_ -= current_buffer[head_];\\n            current_buffer[head_] = sample;\\n            sum_ += sample;\\n            head_ = (head_ + 1) % window_size_;\\n        }\\n        \\n        buffer_ = current_buffer;\\n        return sum_ / count_;\\n    }\", \"new\": \"    double process(double sample) {\\n        if (count_ < window_size_) {\\n            buffer_[count_] = sample;\\n            sum_ += sample;\\n            count_++;\\n        } else {\\n            sum_ -= buffer_[head_];\\n            buffer_[head_] = sample;\\n            sum_ += sample;\\n            head_ = (head_ + 1) % window_size_;\\n        }\\n        return sum_ / count_;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow that I've removed the heap allocations from the `process` method, I should run the test to ensure the functional behavior is still correct.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

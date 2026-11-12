@@ -1,0 +1,91 @@
+{
+ "id": "estimation__easy__linear_regression_slope_estimator__31b__remediate_string_formatting",
+ "kernel": "estimation__easy__linear_regression_slope_estimator__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "estimation",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1020,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <numeric>\n#include <string>\n#include <sstream>\n\nclass LinearRegressionEstimator {\npublic:\n    void configure(size_t window_size) {\n        buffer_.assign(window_size, 0.0);\n        m_window_size = window_size;\n        m_count = 0;\n        m_head = 0;\n    }\n\n    double push(double sample) {\n        buffer_[m_head] = sample;\n        m_head = (m_head + 1) % m_window_size;\n        if (m_count < m_window_size) {\n            m_count++;\n        }\n\n        if (m_count < 2) {\n            return 0.0;\n        }\n\n\n\n        double sum_x = 0.0;\n        double sum_y = 0.0;\n        double sum_xy = 0.0;\n        double sum_x2 = 0.0;\n\n        for (size_t i = 0; i < m_count; ++i) {\n            size_t idx = (m_count < m_window_size) ? i : (m_head + i) % m_window_size;\n            double x = static_cast<double>(i);\n            double y = buffer_[idx];\n\n            sum_x += x;\n            sum_y += y;\n            sum_xy += x * y;\n            sum_x2 += x * x;\n        }\n\n        double denominator = (m_count * sum_x2) - (sum_x * sum_x);\n        if (denominator == 0.0) return 0.0;\n        \n        return ((m_count * sum_xy) - (sum_x * sum_y)) / denominator;\n    }\n\nprivate:\n    std::vector<double> buffer_;\n    size_t m_window_size = 0;\n    size_t m_count = 0;\n    size_t m_head = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 6861,
+  "completion_tokens": 141
+ },
+ "started": 1793818925.2379751,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 907.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-18 of 18)\n     1\t# LinearRegressionEstimator\n     2\t\n     3\tEstimates the slope of a signal using a simple linear least-squares fit over a sliding window of the most recent samples.\n     4\t\n     5\t## Public API\n     6\t- `void configure(size_t window_size)`: Initializes the internal buffer to hold `window_size` samples. This is the only method allowed to allocate memory.\n     7\t- `double push(double sample)`: Adds a new sample to the sliding window and returns the current estimated slope.\n     8\t\n     9\t## Behavior\n    10\t- The estimator maintains a window of the $N$ most recent samples.\n    11\t- The slope is calculated by fitting a line $y = mx + c$ to the data points $(x_i, y_i)$, where $x_i$ is the index of the sample within the window ($0 \\dots N-1$) and $y_i$ is the sample value.\n    12\t- The slope formula used is:\n    13\t  $m = \\frac{N\\sum(xy) - \\sum x \\sum y}{N\\sum(x^2) - (\\sum x)^2}$\n    14\t- If the window is not yet full, the slope is calculated based on the number of samples currently available.\n    15\t- If the window contains fewer than 2 samples, the slope is returned as $0.0$.\n    16\t\n    17\t## Real-Time Constraints\n    18\t- `push` must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-58 of 58)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <numeric>\n     4\t#include <string>\n     5\t#include <sstream>\n     6\t\n     7\tclass LinearRegressionEstimator {\n     8\tpublic:\n     9\t    void configure(size_t window_size) {\n    10\t        buffer_.assign(window_size, 0.0);\n    11\t        m_window_size = window_size;\n    12\t        m_count = 0;\n    13\t        m_head = 0;\n    14\t    }\n    15\t\n    16\t    double push(double sample) {\n    17\t        buffer_[m_head] = sample;\n    18\t        m_head = (m_head + 1) % m_window_size;\n    19\t        if (m_count < m_window_size) {\n    20\t            m_count++;\n    21\t        }\n    22\t\n    23\t        if (m_count < 2) {\n    24\t            return 0.0;\n    25\t        }\n    26\t\n    27\t        std::stringstream ss;\n    28\t        ss << \"Calculating slope for sample count: \" << m_count;\n    29\t        std::string debug_info = ss.str();\n    30\t\n    31\t        double sum_x = 0.0;\n    32\t        double sum_y = 0.0;\n    33\t        double sum_xy = 0.0;\n    34\t        double sum_x2 = 0.0;\n    35\t\n    36\t        for (size_t i = 0; i < m_count; ++i) {\n    37\t            size_t idx = (m_count < m_window_size) ? i : (m_head + i) % m_window_size;\n    38\t            double x = static_cast<double>(i);\n    39\t            double y = buffer_[idx];\n    40\t\n    41\t            sum_x += x;\n    42\t            sum_y += y;\n    43\t            sum_xy += x * y;\n    44\t            sum_x2 += x * x;\n    45\t        }\n    46\t\n    47\t        double denominator = (m_count * sum_x2) - (sum_x * sum_x);\n    48\t        if (denominator == 0.0) return 0.0;\n    49\t        \n    50\t        return ((m_count * sum_xy) - (sum_x * sum_y)) / denominator;\n    51\t    }\n    52\t\n    53\tprivate:\n    54\t    std::vector<double> buffer_;\n    55\t    size_t m_window_size = 0;\n    56\t    size_t m_count = 0;\n    57\t    size_t m_head = 0;\n    58\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::stringstream ss;\\n        ss << \\\"Calculating slope for sample count: \\\" << m_count;\\n        std::string debug_info = ss.str();\", \"new\": \"\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

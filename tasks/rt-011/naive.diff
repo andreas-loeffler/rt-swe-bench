@@ -1,0 +1,13 @@
+diff --git a/pid_controller/src/pid_controller.cpp b/pid_controller/src/pid_controller.cpp
+index fb9431b2..d393a0fe 100644
+--- a/pid_controller/src/pid_controller.cpp
++++ b/pid_controller/src/pid_controller.cpp
+@@ -95,7 +95,7 @@ void PidController::update_parameters()
+   {
+     return;
+   }
+-  params_ = param_listener_->get_params();
++  params_ = std::move(param_listener_->get_params());
+ 
+   feedforward_mode_enabled_.writeFromNonRT(params_.enable_feedforward);
+ }

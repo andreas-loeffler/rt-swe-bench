@@ -1,0 +1,141 @@
+diff --git a/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp b/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
+index ad3592df..c57e7780 100644
+--- a/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
++++ b/steering_controllers_library/include/steering_controllers_library/steering_controllers_library.hpp
+@@ -108,6 +108,10 @@ protected:
+ 
+   /// Odometry:
+   steering_kinematics::SteeringKinematics odometry_;
++  // Command buffers for update(), reserved in on_configure() so that computing
++  // the commands does not allocate in the real-time loop.
++  std::vector<double> traction_commands_;
++  std::vector<double> steering_commands_;
+ 
+   SteeringControllerStateMsg published_state_;
+ 
+diff --git a/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp b/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
+index 5021f734..19f5de19 100644
+--- a/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
++++ b/steering_controllers_library/include/steering_controllers_library/steering_kinematics.hpp
+@@ -213,6 +213,19 @@ public:
+     const double v_bx, const double omega_bz, const bool open_loop = true,
+     const bool reduce_wheel_speed_until_steering_reached = false);
+ 
++  /**
++   * \brief Same as above, but writes the commands into caller-owned vectors.
++   *
++   * Real-time safe once both vectors have capacity for two entries (reserve them
++   * at configure time): the vectors are assigned in place, never reallocated.
++   * \param traction_commands Output, velocity commands of the traction wheels
++   * \param steering_commands Output, position commands of the steering wheels
++   */
++  void get_commands(
++    const double v_bx, const double omega_bz, const bool open_loop,
++    const bool reduce_wheel_speed_until_steering_reached,
++    std::vector<double> & traction_commands, std::vector<double> & steering_commands);
++
+   /**
+    *  \brief Reset poses, heading, and accumulators
+    */
+diff --git a/steering_controllers_library/src/steering_controllers_library.cpp b/steering_controllers_library/src/steering_controllers_library.cpp
+index b2d528a6..c328f181 100644
+--- a/steering_controllers_library/src/steering_controllers_library.cpp
++++ b/steering_controllers_library/src/steering_controllers_library.cpp
+@@ -14,6 +14,7 @@
+ 
+ #include "steering_controllers_library/steering_controllers_library.hpp"
+ 
++#include <algorithm>
+ #include <cmath>
+ #include <limits>
+ #include <memory>
+@@ -162,6 +163,10 @@ controller_interface::CallbackReturn SteeringControllersLibrary::on_configure(
+   // call method from implementations, sets odometry type
+   configure_odometry();
+ 
++  // No configuration produces more than two commands per axle.
++  traction_commands_.reserve(std::max<size_t>(2, params_.traction_joints_names.size()));
++  steering_commands_.reserve(std::max<size_t>(2, params_.steering_joints_names.size()));
++
+   // Check if the number of traction joints is correct
+   if (odometry_.get_odometry_type() == steering_kinematics::BICYCLE_CONFIG)
+   {
+@@ -622,9 +627,11 @@ controller_interface::return_type SteeringControllersLibrary::update_and_write_c
+ 
+   if (!std::isnan(ref_linear) && !std::isnan(ref_angular))
+   {
+-    auto [traction_commands, steering_commands] = odometry_.get_commands(
++    odometry_.get_commands(
+       ref_linear, ref_angular, params_.open_loop,
+-      params_.reduce_wheel_speed_until_steering_reached);
++      params_.reduce_wheel_speed_until_steering_reached, traction_commands_, steering_commands_);
++    const auto & traction_commands = traction_commands_;
++    const auto & steering_commands = steering_commands_;
+ 
+     for (size_t i = 0; i < params_.traction_joints_names.size(); i++)
+     {
+diff --git a/steering_controllers_library/src/steering_kinematics.cpp b/steering_controllers_library/src/steering_kinematics.cpp
+index 8ac1f482..5fe101e6 100644
+--- a/steering_controllers_library/src/steering_kinematics.cpp
++++ b/steering_controllers_library/src/steering_kinematics.cpp
+@@ -235,6 +235,19 @@ double SteeringKinematics::convert_twist_to_steering_angle(double v_bx, double o
+ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_commands(
+   const double v_bx, const double omega_bz, const bool open_loop,
+   const bool reduce_wheel_speed_until_steering_reached)
++{
++  std::vector<double> traction_commands;
++  std::vector<double> steering_commands;
++  get_commands(
++    v_bx, omega_bz, open_loop, reduce_wheel_speed_until_steering_reached, traction_commands,
++    steering_commands);
++  return std::make_tuple(traction_commands, steering_commands);
++}
++
++void SteeringKinematics::get_commands(
++  const double v_bx, const double omega_bz, const bool open_loop,
++  const bool reduce_wheel_speed_until_steering_reached, std::vector<double> & traction_commands,
++  std::vector<double> & steering_commands)
+ {
+   // desired wheel speed and steering angle of the middle of traction and steering axis
+   double Ws, phi, phi_IK = steer_pos_;
+@@ -282,14 +295,12 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+ 
+   if (config_type_ == BICYCLE_CONFIG)
+   {
+-    std::vector<double> traction_commands = {Ws};
+-    std::vector<double> steering_commands = {phi};
+-    return std::make_tuple(traction_commands, steering_commands);
++    traction_commands = {Ws};
++    steering_commands = {phi};
++    return;
+   }
+   else if (config_type_ == TRICYCLE_CONFIG)
+   {
+-    std::vector<double> traction_commands;
+-    std::vector<double> steering_commands;
+     // double-traction axle
+     if (is_close_to_zero(phi_IK))
+     {
+@@ -305,12 +316,10 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+     }
+     // simple steering
+     steering_commands = {phi};
+-    return std::make_tuple(traction_commands, steering_commands);
++    return;
+   }
+   else if (config_type_ == ACKERMANN_CONFIG)
+   {
+-    std::vector<double> traction_commands;
+-    std::vector<double> steering_commands;
+     if (is_close_to_zero(phi_IK))
+     {
+       // avoid division by zero
+@@ -335,7 +344,7 @@ std::tuple<std::vector<double>, std::vector<double>> SteeringKinematics::get_com
+         std::atan2(numerator, denominator_first_member - denominator_second_member);
+       steering_commands = {alpha_r, alpha_l};
+     }
+-    return std::make_tuple(traction_commands, steering_commands);
++    return;
+   }
+   else
+   {

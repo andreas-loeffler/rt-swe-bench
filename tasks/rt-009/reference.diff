@@ -1,0 +1,21 @@
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+index 6eb6c4c8..1a1c715d 100644
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -109,11 +109,11 @@ controller_interface::return_type DiffDriveController::update_reference_from_sub
+ {
+   auto logger = get_node()->get_logger();
+ 
+-  auto current_ref_op = received_velocity_msg_.try_get();
+-  if (current_ref_op.has_value())
+-  {
+-    command_msg_ = current_ref_op.value();
+-  }
++  // Copy the latest command into command_msg_ in place. The value-returning
++  // try_get() copies the whole message, and a frame id longer than the
++  // small-string buffer then allocates on every cycle; assigning into
++  // command_msg_ reuses its string's storage.
++  received_velocity_msg_.try_get([this](const TwistStamped & msg) { command_msg_ = msg; });
+ 
+   constexpr rcutils_duration_value_t warning_throttle_ms = 1000;
+ 

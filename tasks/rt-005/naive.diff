@@ -1,0 +1,51 @@
+diff --git a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+index 3e82b807..1a29b0bf 100644
+--- a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
++++ b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+@@ -100,6 +100,7 @@ protected:
+   nav_msgs::msg::Odometry odometry_message_;
+ 
+   Odometry odometry_;
++  std::vector<double> wheels_feedback_;  // [rads], sized in on_configure()
+ 
+   std::shared_ptr<rclcpp::Publisher<tf2_msgs::msg::TFMessage>> odometry_transform_publisher_ =
+     nullptr;
+diff --git a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+index 23925c77..6cae064c 100644
+--- a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
++++ b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+@@ -79,6 +79,7 @@ controller_interface::CallbackReturn OmniWheelDriveController::on_configure(
+ 
+   odometry_.setParams(
+     params_.robot_radius, params_.wheel_radius, params_.wheel_offset, params_.wheel_names.size());
++  wheels_feedback_.assign(params_.wheel_names.size(), 0.0);
+ 
+   cmd_vel_timeout_ = rclcpp::Duration::from_seconds(params_.cmd_vel_timeout);
+ 
+@@ -309,7 +310,6 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+   }
+   else
+   {
+-    std::vector<double> wheels_feedback(registered_wheel_handles_.size());  // [rads]
+     for (size_t i = 0; i < static_cast<size_t>(registered_wheel_handles_.size()); ++i)
+     {
+       // Get wheel feedback
+@@ -328,15 +328,15 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+         return controller_interface::return_type::ERROR;
+       }
+ 
+-      wheels_feedback[i] = wheel_feedback;
++      wheels_feedback_[i] = wheel_feedback;
+     }
+     if (params_.position_feedback)
+     {
+-      odometry_updated = odometry_.updateFromPos(wheels_feedback, time);
++      odometry_updated = odometry_.updateFromPos(wheels_feedback_, time);
+     }
+     else
+     {
+-      odometry_updated = odometry_.updateFromVel(wheels_feedback, time);
++      odometry_updated = odometry_.updateFromVel(wheels_feedback_, time);
+     }
+   }
+ 

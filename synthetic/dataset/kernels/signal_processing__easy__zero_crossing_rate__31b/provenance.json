@@ -1,0 +1,130 @@
+{
+ "id": "signal_processing__easy__zero_crossing_rate__31b",
+ "idea": {
+  "domain": "signal_processing",
+  "level": "easy",
+  "name": "zero_crossing_rate",
+  "class": "ZeroCrossingRate",
+  "summary": "Counts the number of times the signal crosses zero within a sliding window of length N.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 12,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 12,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 24,
+   "killed": 22,
+   "kill_rate": 0.917,
+   "survivors": [
+    "line 27: < -> <=",
+    "line 27: 0 -> 1"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 12,
+     "allocating_cycles": 9,
+     "allocs": 9,
+     "bytes": 104,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 9
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 12,
+     "allocating_cycles": 9,
+     "allocs": 9,
+     "bytes": 104,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 9
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference_2.hpp F=0 R=0",
+   "by": "12b",
+   "files": [
+    "reference_2.hpp"
+   ]
+  },
+  {
+   "round": 2,
+   "after": "G2: kill rate 0.71 of 24 compiling mutants",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 2,
+ "test_include_normalized": true
+}

@@ -1,0 +1,124 @@
+{
+ "id": "estimation__hard__weighted_moving_average_filter__31b",
+ "idea": {
+  "domain": "estimation",
+  "level": "hard",
+  "name": "weighted_moving_average_filter",
+  "class": "WeightedMovingAverage",
+  "summary": "Applies a configurable kernel-weighted average over a circular buffer for signal smoothing.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 24,
+   "killed": 20,
+   "kill_rate": 0.833,
+   "survivors": [
+    "line 63: ++ -> --",
+    "line 62: 0.0f -> 1.0f",
+    "line 33: 0 -> 1",
+    "line 63: 0 -> 1"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 1200,
+     "allocs": 1200,
+     "bytes": 48000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1200
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2402,
+     "allocating_cycles": 1200,
+     "allocs": 1200,
+     "bytes": 47640,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1200
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference.hpp F=0 R=0, reference_2.hpp F=0 R=0",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": true
+}

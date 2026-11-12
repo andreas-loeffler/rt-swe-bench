@@ -1,0 +1,111 @@
+{
+ "id": "signal_processing__easy__moving_average_filter__31b",
+ "idea": {
+  "domain": "signal_processing",
+  "level": "easy",
+  "name": "moving_average_filter",
+  "class": "MovingAverageFilter",
+  "summary": "Computes the arithmetic mean of the last N samples using a circular buffer.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 11,
+   "compiled": 11,
+   "killed": 9,
+   "kill_rate": 0.818,
+   "survivors": [
+    "line 16: 0 -> 1",
+    "line 16: 0.0 -> 1.0"
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 1000,
+     "allocs": 1000,
+     "bytes": 24000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1000
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 1000,
+     "allocs": 2000,
+     "bytes": 544000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 2000
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

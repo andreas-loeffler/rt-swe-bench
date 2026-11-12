@@ -1,0 +1,40 @@
+diff --git a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+index 3e82b807..385d1fc3 100644
+--- a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
++++ b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+@@ -106,6 +106,9 @@ protected:
+   std::shared_ptr<realtime_tools::RealtimePublisher<tf2_msgs::msg::TFMessage>>
+     realtime_odometry_transform_publisher_;
+   geometry_msgs::msg::TransformStamped transform_;
++  // TF message for update(), sized in on_configure() so that publishing the
++  // transform does not allocate in the real-time loop.
++  tf2_msgs::msg::TFMessage odometry_transform_message_;
+ 
+   void compute_and_set_wheel_velocities();
+   const char * feedback_type() const;
+diff --git a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+index 23925c77..9192aaf7 100644
+--- a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
++++ b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+@@ -184,6 +184,7 @@ controller_interface::CallbackReturn OmniWheelDriveController::on_configure(
+ 
+   transform_.header.frame_id = odom_frame_id;
+   transform_.child_frame_id = base_frame_id;
++  odometry_transform_message_.transforms.assign(1, transform_);
+ 
+   return controller_interface::CallbackReturn::SUCCESS;
+ }
+@@ -366,9 +367,10 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+       transform_.transform.rotation.y = orientation.y();
+       transform_.transform.rotation.z = orientation.z();
+       transform_.transform.rotation.w = orientation.w();
+-      tf2_msgs::msg::TFMessage odometry_transform_message;
+-      odometry_transform_message.transforms.push_back(transform_);
+-      realtime_odometry_transform_publisher_->try_publish(odometry_transform_message);
++      // Reuse the message sized in on_configure(); assigning the transform keeps
++      // the frame-id strings' storage, so nothing is allocated here.
++      odometry_transform_message_.transforms.front() = transform_;
++      realtime_odometry_transform_publisher_->try_publish(odometry_transform_message_);
+     }
+   }
+ 

@@ -1,0 +1,131 @@
+{
+ "id": "kinematics__medium__wheel_odometry_integrator__31b__implement",
+ "kernel": "kinematics__medium__wheel_odometry_integrator__31b",
+ "kind": "implement",
+ "level": "medium",
+ "domain": "kinematics",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 10,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cstddef>\n#include <cstdint>\n#include <vector>\n#include <cmath>\n#include <numbers>\n\nstruct Pose {\n    double x = 0.0;\n    double y = 0.0;\n    double theta = 0.0;\n};\n\nclass WheelOdometryIntegrator {\n    double wheel_base_ = 0.0;\n    double ticks_per_meter_ = 1.0;\n    size_t window_size_ = 0;\n    \n    std::vector<double> v_buffer_;\n    std::vector<double> w_buffer_;\n    size_t buffer_idx_ = 0;\n    size_t buffer_count_ = 0;\n    double v_sum_ = 0.0;\n    double w_sum_ = 0.0;\n    \n    Pose pose_{};\n\npublic:\n    void configure(double wheel_base, double ticks_per_meter, size_t window_size) {\n        wheel_base_ = wheel_base;\n        ticks_per_meter_ = ticks_per_meter;\n        window_size_ = window_size;\n        v_buffer_.assign(window_size, 0.0);\n        w_buffer_.assign(window_size, 0.0);\n        buffer_idx_ = 0;\n        buffer_count_ = 0;\n        v_sum_ = 0.0;\n        w_sum_ = 0.0;\n        pose_ = {0.0, 0.0, 0.0};\n    }\n\n    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\n        if (dt <= 0.0) return;\n\n        double d_left = left_ticks / ticks_per_meter_;\n        double d_right = right_ticks / ticks_per_meter_;\n        \n        double v_raw = (d_left + d_right) / (2.0 * dt);\n        double w_raw = (d_right - d_left) / (wheel_base_ * dt);\n\n        v_sum_ -= v_buffer_[buffer_idx_];\n        w_sum_ -= w_buffer_[buffer_idx_];\n        \n        v_buffer_[buffer_idx_] = v_raw;\n        w_buffer_[buffer_idx_] = w_raw;\n        \n        v_sum_ += v_raw;\n        w_sum_ += w_raw;\n\n        buffer_idx_ = (buffer_idx_ + 1) % window_size_;\n        if (buffer_count_ < window_size_) buffer_count_++;\n\n        double v_avg = v_sum_ / buffer_count_;\n        double w_avg = w_sum_ / buffer_count_;\n\n        double theta_half = pose_.theta + w_avg * dt / 2.0;\n        pose_.x += v_avg * std::cos(theta_half) * dt;\n        pose_.y += v_avg * std::sin(theta_half) * dt;\n        pose_.theta += w_avg * dt;\n\n        // Normalize theta to [-pi, pi)\n        pose_.theta = std::atan2(std::sin(pose_.theta), std::cos(pose_.theta));\n        if (pose_.theta >= std::numbers::pi) {\n            pose_.theta -= 2.0 * std::numbers::pi;\n        }\n    }\n\n    Pose get_pose() const {\n        return pose_;\n    }\n};\n"
+  }
+ ],
+ "steps": 10,
+ "usage": {
+  "prompt_tokens": 24948,
+  "completion_tokens": 2547
+ },
+ "started": 1793816387.110736,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1698.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-34 of 34)\n     1\t# WheelOdometryIntegrator\n     2\t\n     3\tThe `WheelOdometryIntegrator` transforms raw differential wheel encoder ticks into a global 2D pose (x, y, theta). It employs a fixed-size history buffer to smooth the linear and angular velocities before integrating them into the pose.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(double wheel_base, double ticks_per_meter, size_t window_size)`\n     8\tCalled once during initialization. \n     9\t- `wheel_base`: Distance between the two wheels (meters).\n    10\t- `ticks_per_meter`: Scaling factor to convert encoder ticks to distance.\n    11\t- `window_size`: Number of samples used for the moving average smoothing.\n    12\t\n    13\t### `void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt)`\n    14\tUpdates the internal velocity history and integrates the pose.\n    15\t- `left_ticks`, `right_ticks`: Cumulative encoder ticks since the last call (relative delta).\n    16\t- `dt`: Time delta since last call (seconds).\n    17\t- **Behavior**:\n    18\t    1. Calculates raw linear velocity $v$ and angular velocity $\\omega$ from the tick deltas.\n    19\t    2. Pushes these values into a ring buffer of size `window_size`.\n    20\t    3. Computes the smoothed velocity $\\bar{v}$ and $\\bar{\\omega}$ as the average of the current buffer contents.\n    21\t    4. Integrates the smoothed values into the global pose:\n    22\t       - $x_{new} = x_{old} + \\bar{v} \\cdot \\cos(\\theta + \\bar{\\omega} \\cdot dt / 2) \\cdot dt$\n    23\t       - $y_{new} = y_{old} + \\bar{v} \\cdot \\sin(\\theta + \\bar{\\omega} \\cdot dt / 2) \\cdot dt$\n    24\t       - $\\theta_{new} = \\theta_{old} + \\bar{\\omega} \\cdot dt$\n    25\t    5. Normalizes $\\theta$ to $[-\\pi, \\pi)$.\n    26\t\n    27\t### `Pose get_pose() const`\n    28\tReturns the current integrated global pose.\n    29\t- Returns a `Pose` struct containing `{x, y, theta}`.\n    30\t\n    31\t## Constraints\n    32\t- The methods `push_ticks` and `get_pose` are executed on a hard real-time path.\n    33\t- They must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    34\t- All memory must be reserved during `configure`."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-26 of 26)\n     1\t#pragma once\n     2\t\n     3\t#include <cstddef>\n     4\t#include <cstdint>\n     5\t\n     6\tstruct Pose {\n     7\t    double x = 0.0;\n     8\t    double y = 0.0;\n     9\t    double theta = 0.0;\n    10\t};\n    11\t\n    12\tclass WheelOdometryIntegrator {\n    13\tpublic:\n    14\t    void configure(double wheel_base, double ticks_per_meter, size_t window_size) {\n    15\t        // TODO: implement\n    16\t    }\n    17\t\n    18\t    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\n    19\t        // TODO: implement\n    20\t    }\n    21\t\n    22\t    Pose get_pose() const {\n    23\t        // TODO: implement\n    24\t        return Pose{};\n    25\t    }\n    26\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: I need to implement the `WheelOdometryIntegrator` class according to the specifications. \n1. `configure` will initialize the parameters and allocate buffers for the moving average window.\n2. `push_ticks` will:\n   - Convert ticks to distances: $d_{left} = \\frac{left\\_ticks}{ticks\\_per\\_meter}$, $d_{right} = \\frac{right\\_ticks}{ticks\\_per\\_meter}$.\n   - Compute raw linear velocity $v = \\frac{d_{left} + d_{right}}{2 \\cdot dt}$.\n   - Compute raw angular velocity $\\omega = \\frac{d_{right} - d_{left}}{wheel\\_base \\cdot dt}$.\n   - Use a ring buffer to store $v$ and $\\omega$ and maintain their sums for $O(1)$ average calculation.\n   - Integrate the smoothed $\\bar{v}$ and $\\bar{\\omega}$ into the pose using the provided formulas.\n   - Normalize $\\theta$ to $[-\\pi, \\pi)$.\n3. `get_pose` will return the current pose.\n\nI will use `std::vector` for the buffers, which is allowed in `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstddef>\\n#include <cstdint>\", \"new\": \"#include <cstddef>\\n#include <cstdint>\\n#include <vector>\\n#include <cmath>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: I need to add the member variables to the class to store the configuration and the current state.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class WheelOdometryIntegrator {\\npublic:\", \"new\": \"class WheelOdometryIntegrator {\\n    double wheel_base_ = 0.0;\\n    double ticks_per_meter_ = 1.0;\\n    size_t window_size_ = 0;\\n    \\n    std::vector<double> v_buffer_;\\n    std::vector<double> w_buffer_;\\n    size_t buffer_idx_ = 0;\\n    size_t buffer_count_ = 0;\\n    double v_sum_ = 0.0;\\n    double w_sum_ = 0.0;\\n    \\n    Pose pose_{};\\n\\npublic:\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: Now I will implement the `configure` method. It should initialize the parameters and pre-allocate the vectors to avoid heap allocation in `push_ticks`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(double wheel_base, double ticks_per_meter, size_t window_size) {\\n        // TODO: implement\\n    }\", \"new\": \"    void configure(double wheel_base, double ticks_per_meter, size_t window_size) {\\n        wheel_base_ = wheel_base;\\n        ticks_per_meter_ = ticks_per_meter;\\n        window_size_ = window_size;\\n        v_buffer_.assign(window_size, 0.0);\\n        w_buffer_.assign(window_size, 0.0);\\n        buffer_idx_ = 0;\\n        buffer_count_ = 0;\\n        v_sum_ = 0.0;\\n        w_sum_ = 0.0;\\n        pose_ = {0.0, 0.0, 0.0};\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: Now I will implement the `push_ticks` method.\n1. Calculate $d_{left}$ and $d_{right}$.\n2. Calculate raw $v$ and $\\omega$. Note: if $dt$ is 0, we should handle it (though typically $dt > 0$). Based on the formulas, $v = \\Delta d / (2 dt)$.\n3. Update the ring buffer: subtract the old value from the sum, add the new value, and update the buffer.\n4. Calculate the averages $\\bar{v}$ and $\\bar{\\omega}$.\n5. Update pose using the specified integration formulas.\n6. Normalize $\\theta$ to $[-\\pi, \\pi)$.\n\nFor normalization: $\\theta = \\text{atan2}(\\sin(\\theta), \\cos(\\theta))$ is a robust way to normalize to $(-\\pi, \\pi]$. The spec says $[-\\pi, \\pi)$.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\\n        // TODO: implement\\n    }\", \"new\": \"    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\\n        if (dt <= 0.0) return;\\n\\n        double d_left = left_ticks / ticks_per_meter_;\\n        double d_right = right_ticks / ticks_per_meter_;\\n        \\n        double v_raw = (d_left + d_right) / (2.0 * dt);\\n        double w_raw = (d_right - d_left) / (wheel_base_ * dt);\\n\\n        v_sum_ -= v_buffer_[buffer_idx_];\\n        w_sum_ -= w_buffer_[buffer_idx_];\\n        \\n        v_buffer_[buffer_idx_] = v_raw;\\n        w_buffer_[buffer_idx_] = w_raw;\\n        \\n        v_sum_ += v_raw;\\n        w_sum_ += w_raw;\\n\\n        buffer_idx_ = (buffer_idx_ + 1) % window_size_;\\n        if (buffer_count_ < window_size_) buffer_count_++;\\n\\n        double v_avg = v_sum_ / buffer_count_;\\n        double w_avg = w_sum_ / buffer_count_;\\n\\n        double theta_half = pose_.theta + w_avg * dt / 2.0;\\n        pose_.x += v_avg * std::cos(theta_half) * dt;\\n        pose_.y += v_avg * std::sin(theta_half) * dt;\\n        pose_.theta += w_avg * dt;\\n\\n        // Normalize theta to [-pi, pi)\\n        pose_.theta = std::atan2(std::sin(pose_.theta), std::cos(pose_.theta));\\n        if (pose_.theta >= M_PI) pose_.theta -= 2.0 * M_PI;\\n        if (pose_.theta < -M_PI) pose_.theta += 2.0 * M_PI;\\n    }\"}}\n```\n\nWait, `M_PI` is not standard C++. I should use `std::acos(-1.0)` or define it. C++20 has `std::numbers::pi`. I'll use `std::acos(-1.0)` or similar if I can't use `<numbers>`. Since this is C++20, `#include <numbers>` and `std::numbers::pi` is best.\n\nLet me add the include first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\\n#include <cmath>\", \"new\": \"#include <vector>\\n#include <cmath>\\n#include <numbers>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: I will now implement `push_ticks` again, correctly using `std::numbers::pi` and the integration formulas. I will also ensure the normalization to $[-\\pi, \\pi)$ is handled correctly. Since `std::atan2` returns values in $(-\\pi, \\pi]$, I'll just need to handle the edge case where the result is exactly $\\pi$ to make it $[-\\pi, \\pi)$.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\\n        // TODO: implement\\n    }\", \"new\": \"    void push_ticks(int32_t left_ticks, int32_t right_ticks, double dt) {\\n        if (dt <= 0.0) return;\\n\\n        double d_left = left_ticks / ticks_per_meter_;\\n        double d_right = right_ticks / ticks_per_meter_;\\n        \\n        double v_raw = (d_left + d_right) / (2.0 * dt);\\n        double w_raw = (d_right - d_left) / (wheel_base_ * dt);\\n\\n        v_sum_ -= v_buffer_[buffer_idx_];\\n        w_sum_ -= w_buffer_[buffer_idx_];\\n        \\n        v_buffer_[buffer_idx_] = v_raw;\\n        w_buffer_[buffer_idx_] = w_raw;\\n        \\n        v_sum_ += v_raw;\\n        w_sum_ += w_raw;\\n\\n        buffer_idx_ = (buffer_idx_ + 1) % window_size_;\\n        if (buffer_count_ < window_size_) buffer_count_++;\\n\\n        double v_avg = v_sum_ / buffer_count_;\\n        double w_avg = w_sum_ / buffer_count_;\\n\\n        double theta_half = pose_.theta + w_avg * dt / 2.0;\\n        pose_.x += v_avg * std::cos(theta_half) * dt;\\n        pose_.y += v_avg * std::sin(theta_half) * dt;\\n        pose_.theta += w_avg * dt;\\n\\n        // Normalize theta to [-pi, pi)\\n        pose_.theta = std::atan2(std::sin(pose_.theta), std::cos(pose_.theta));\\n        if (pose_.theta >= std::numbers::pi) {\\n            pose_.theta -= 2.0 * std::numbers::pi;\\n        }\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: Now I will implement the `get_pose` method to return the current integrated pose.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    Pose get_pose() const {\\n        // TODO: implement\\n        return Pose{};\\n    }\", \"new\": \"    Pose get_pose() const {\\n        return pose_;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "some reasoning: I have implemented the `WheelOdometryIntegrator` class according to the spec. I've ensured that heap allocation only occurs in `configure`, that the integration formulas are correctly applied, and that the theta normalization is handled.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "id": "messaging__medium__packet_burst_aggregator__31b__remediate_container_growth",
+ "kernel": "messaging__medium__packet_burst_aggregator__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 540,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstdint>\n#include <vector>\n#include <algorithm>\n#include <cstring>\n\nclass PacketBurstAggregator {\npublic:\n    void configure(size_t max_burst_size) {\n        capacity_ = max_burst_size;\n        offset_ = 0;\n        buffer_.resize(max_burst_size);\n    }\n\n    size_t push(const uint8_t* data, size_t len) {\n        if (data == nullptr || len == 0) return 0;\n        if (offset_ + len > capacity_) {\n            return 0;\n        }\n        \n        std::memcpy(buffer_.data() + offset_, data, len);\n        offset_ += len;\n        return len;\n    }\n\n    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n        if (out_buffer == nullptr || out_capacity == 0) return 0;\n        size_t bytes_to_copy = std::min(offset_, out_capacity);\n        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n        \n        offset_ = 0;\n\n        return bytes_to_copy;\n    }\n\nprivate:\n\n\n    std::vector<uint8_t> buffer_;\n    size_t capacity_ = 0;\n    size_t offset_ = 0;\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 18250,
+  "completion_tokens": 1734
+ },
+ "started": 1793821613.153048,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1359.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# PacketBurstAggregator\n     2\t\n     3\tThe `PacketBurstAggregator` collects small incoming data packets into a single large contiguous frame (a \"burst\") to optimize DMA transfers. It manages a fixed-size internal buffer.\n     4\t\n     5\t## Public API\n     6\t\n     7\t- `void configure(size_t max_burst_size)`\n     8\t  Configures the internal buffer capacity. This is called once before any real-time processing. It may allocate memory.\n     9\t\n    10\t- `size_t push(const uint8_t* data, size_t len)`\n    11\t  Appends a packet to the current burst. \n    12\t  - If the packet fits entirely within the remaining space of the `max_burst_size`, it is added and `len` is returned.\n    13\t  - If the packet is larger than the remaining space, it is not added, and `0` is returned (indicating the current burst is effectively \"full\" and must be popped before more data can be added).\n    14\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    15\t\n    16\t- `size_t pop(uint8_t* out_buffer, size_t out_capacity)`\n    17\t  Retrieves the aggregated burst.\n    18\t  - Copies up to `out_capacity` bytes from the internal buffer to `out_buffer`.\n    19\t  - Resets the internal buffer pointer to the start (clearing the burst).\n    20\t  - Returns the number of bytes copied.\n    21\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    22\t\n    23\t## Preconditions\n    24\t- `configure` must be called before `push` or `pop`.\n    25\t- `out_buffer` passed to `pop` must be pre-allocated and large enough to hold the expected data."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-44 of 44)\n     1\t#pragma once\n     2\t#include <cstdint>\n     3\t#include <vector>\n     4\t#include <algorithm>\n     5\t#include <cstring>\n     6\t\n     7\tclass PacketBurstAggregator {\n     8\tpublic:\n     9\t    void configure(size_t max_burst_size) {\n    10\t        capacity_ = max_burst_size;\n    11\t        offset_ = 0;\n    12\t        buffer_.clear();\n    13\t    }\n    14\t\n    15\t    size_t push(const uint8_t* data, size_t len) {\n    16\t        if (data == nullptr || len == 0) return 0;\n    17\t        if (offset_ + len > capacity_) {\n    18\t            return 0;\n    19\t        }\n    20\t        \n    21\t        append_to_buffer(data, len);\n    22\t        offset_ += len;\n    23\t        return len;\n    24\t    }\n    25\t\n    26\t    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n    27\t        if (out_buffer == nullptr || out_capacity == 0) return 0;\n    28\t        size_t bytes_to_copy = std::min(offset_, out_capacity);\n    29\t        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n    30\t        \n    31\t        offset_ = 0;\n    32\t        buffer_.clear();\n    33\t        return bytes_to_copy;\n    34\t    }\n    35\t\n    36\tprivate:\n    37\t    void append_to_buffer(const uint8_t* data, size_t len) {\n    38\t        buffer_.insert(buffer_.end(), data, data + len);\n    39\t    }\n    40\t\n    41\t    std::vector<uint8_t> buffer_;\n    42\t    size_t capacity_ = 0;\n    43\t    size_t offset_ = 0;\n    44\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `push` calls `append_to_buffer`, which uses `std::vector::insert`. This can cause heap allocations if the vector's capacity is exceeded. Similarly, `pop` calls `buffer_.clear()`, which doesn't allocate but doesn't reclaim the capacity (which is fine), but the main issue is the reallocation in `push`.\n\nTo fix this and satisfy the real-time constraint, I should allocate the buffer once in `configure` using `std::vector::reserve` or `std::vector::resize` and then use `std::memcpy` or index-based access to manage the data without changing the vector's size during `push` and `pop`.\n\nWait, `buffer_.clear()` in `pop` and `buffer_.insert` in `push` are causing the issue. If I `resize` in `configure`, I can use `std::memcpy` to copy data into the existing allocated memory.\n\nLet's refine the plan:\n1. In `configure`, use `buffer_.resize(max_burst_size)` to allocate the memory upfront.\n2. In `push`, use `std::memcpy` to copy data from `data` to `buffer_.data() + offset_`.\n3. In `pop`, use `std::memcpy` (which it already does) and simply reset `offset_` to 0. Remove `buffer_.clear()`.\n\nLet's check `kernel.hpp` again.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.clear();\\n    }\", \"new\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.assign(max_burst_size, 0);\\n    }\"}}\n```\n\nWait, `assign` might be slightly slower than `resize` if we don't care about initialization, but it works. Actually, `buffer_.resize(max_burst_size)` is better. \n\nActually, if I use `resize`, the `pop` function's `buffer_.clear()` will shrink the vector if not careful (though `clear` doesn't usually shrink capacity), but it's cleaner to just manage `offset_`.\n\nLet's apply the changes.\n\nFirst, change `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.clear();\\n    }\", \"new\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.resize(max_burst_size);\\n    }\"}}\n```\n\nThen, update `push` to not use `append_to_buffer` (which uses `insert`).\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        append_to_buffer(data, len);\", \"new\": \"        std::memcpy(buffer_.data() + offset_, data, len);\"}}\n```\n\nThen, remove `append_to_buffer` and the `buffer_.clear()` in `pop`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        buffer_.clear();\", \"new\": \"\"}}\n```\n\nAnd remove the `append_to_buffer` method.\n\nWait, I should do these carefully. Let's start with `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.clear();\\n    }\", \"new\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.resize(max_burst_size);\\n    }\"}}\n```\n\nThen `push`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        append_to_buffer(data, len);\", \"new\": \"        std::memcpy(buffer_.data() + offset_, data, len);\"}}\n```\n\nThen `pop`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        buffer_.clear();\", \"new\": \"\"}}\n```\n\nWait, I need to remove `append_to_buffer` entirely to be clean, and the empty line left by `buffer_.clear()`.\n\nLet's refine the `pop` edit.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        buffer_.clear();\", \"new\": \"\"}}\n```\n\nAnd then the `append_to_buffer` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void append_to_buffer(const uint8_t* data, size_t len) {\\n        buffer_.insert(buffer_.end(), data, data + len);\\n    }\", \"new\": \"\"}}\n```\n\nLet's start.\n\nStep 1: `configure`\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.clear();\\n    }\", \"new\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.resize(max_burst_size);\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        append_to_buffer(data, len);\", \"new\": \"        std::memcpy(buffer_.data() + offset_, data, len);\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        buffer_.clear();\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void append_to_buffer(const uint8_t* data, size_t len) {\\n        buffer_.insert(buffer_.end(), data, data + len);\\n    }\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have modified `kernel.hpp` to ensure that no heap allocations occur during the `push` and `pop` methods. The `configure` method now pre-allocates the required buffer using `std::vector::resize`, and `push` uses `std::memcpy` to copy data into the pre-allocated space. The `pop` method resets the offset without clearing the vector's capacity.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

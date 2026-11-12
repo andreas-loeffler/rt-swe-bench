@@ -1,0 +1,118 @@
+{
+ "id": "audio_dsp__easy__linear_gain_ramp__12b",
+ "idea": {
+  "domain": "audio_dsp",
+  "level": "easy",
+  "name": "linear_gain_ramp",
+  "class": "LinearGainRamp",
+  "summary": "Linearly interpolates the gain value from a start to an end point over a block of audio frames.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 503,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 503,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 18,
+   "compiled": 18,
+   "killed": 18,
+   "kill_rate": 1.0,
+   "survivors": []
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 503,
+     "allocating_cycles": 501,
+     "allocs": 1002,
+     "bytes": 16036,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1002
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 503,
+     "allocating_cycles": 502,
+     "allocs": 1004,
+     "bytes": 2008012048,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1004
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "std_function.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference.hpp F=0 R=0, reference_2.hpp F=0 R=0",
+   "by": "12b",
+   "files": [
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": false
+}

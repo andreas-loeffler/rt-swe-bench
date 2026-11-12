@@ -1,0 +1,19 @@
+diff --git a/joint_trajectory_controller/src/joint_trajectory_controller.cpp b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+index 2f3a2ce9..f48a4eed 100644
+--- a/joint_trajectory_controller/src/joint_trajectory_controller.cpp
++++ b/joint_trajectory_controller/src/joint_trajectory_controller.cpp
+@@ -1100,6 +1100,14 @@ controller_interface::CallbackReturn JointTrajectoryController::on_configure(
+   resize_joint_trajectory_point(state_error_, dof_);
+   resize_joint_trajectory_point(
+     last_commanded_state_, dof_, std::numeric_limits<double>::quiet_NaN());
++  // Preallocate the sampled points so update() does not allocate.
++  for (auto * point : {&state_desired_, &command_next_, &last_commanded_state_})
++  {
++    point->positions.reserve(dof_);
++    point->velocities.reserve(dof_);
++    point->accelerations.reserve(dof_);
++    point->effort.reserve(dof_);
++  }
+ 
+   // create services
+   query_state_srv_ = get_node()->create_service<control_msgs::srv::QueryTrajectoryState>(

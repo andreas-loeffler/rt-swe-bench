@@ -1,0 +1,130 @@
+{
+ "id": "messaging__medium__preallocated_string_builder__12b",
+ "idea": {
+  "domain": "messaging",
+  "level": "medium",
+  "name": "preallocated_string_builder",
+  "class": "FixedStringBuilder",
+  "summary": "Constructs formatted status strings into a fixed-size internal buffer to avoid runtime string allocations.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 12,
+   "compiled": 12,
+   "killed": 10,
+   "kill_rate": 0.833,
+   "survivors": [
+    "line 37: 0 -> 1",
+    "line 23: < -> <="
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 509,
+     "allocs": 509,
+     "bytes": 2629,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 509
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 505,
+     "allocs": 506,
+     "bytes": 32442,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 506
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference_2.hpp F=0 R=1",
+   "by": "31b",
+   "files": [
+    "reference_2.hpp"
+   ]
+  },
+  {
+   "round": 2,
+   "after": "G2: kill rate 0.75 of 12 compiling mutants",
+   "by": "12b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 2,
+ "test_include_normalized": false
+}

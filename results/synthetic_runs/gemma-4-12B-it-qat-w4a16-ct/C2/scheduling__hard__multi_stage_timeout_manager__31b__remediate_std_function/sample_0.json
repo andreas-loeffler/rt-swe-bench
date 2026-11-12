@@ -1,0 +1,91 @@
+{
+ "id": "scheduling__hard__multi_stage_timeout_manager__31b__remediate_std_function",
+ "kernel": "scheduling__hard__multi_stage_timeout_manager__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cstdint>\n#include <algorithm>\n#include <functional>\n\nclass TimerState {\n    double elapsed_time = 0.0;\n    uint32_t id = 0;\n    bool active = false;\n\npublic:\n    void activate(uint32_t timer_id) {\n        id = timer_id;\n        elapsed_time = 0.0;\n        active = true;\n    }\n\n    void add_time(double dt) {\n        elapsed_time += dt;\n    }\n\n    void reset() {\n        elapsed_time = 0.0;\n    }\n\n    double get_time() const { return elapsed_time; }\n    uint32_t get_id() const { return id; }\n    bool is_active() const { return active; }\n    void set_inactive() { active = false; }\n};\n\nclass MultiStageTimeoutManager {\n    TimerState* timers = nullptr;\n    double* thresholds = nullptr;\n    size_t num_timers = 0;\n    size_t num_thresholds = 0;\n\n    void apply_update(uint32_t id, double dt) {\n        for (size_t i = 0; i < num_timers; ++i) {\n            if (timers[i].is_active() && timers[i].get_id() == id) {\n                timers[i].add_time(dt);\n                return;\n            }\n        }\n    }\n\npublic:\n    void configure(size_t max_timers, const std::vector<double>& stages) {\n        num_timers = max_timers;\n        num_thresholds = stages.size();\n        \n        timers = new TimerState[max_timers];\n        thresholds = new double[num_thresholds];\n        \n        for (size_t i = 0; i < num_thresholds; ++i) {\n            thresholds[i] = stages[i];\n        }\n    }\n\n    ~MultiStageTimeoutManager() {\n        delete[] timers;\n        delete[] thresholds;\n    }\n\n    void reset(uint32_t id) {\n        for (size_t i = 0; i < num_timers; ++i) {\n            if (timers[i].is_active() && timers[i].get_id() == id) {\n                timers[i].reset();\n                return;\n            }\n        }\n\n        for (size_t i = 0; i < num_timers; ++i) {\n            if (!timers[i].is_active()) {\n                timers[i].activate(id);\n                return;\n            }\n        }\n    }\n\n    void update(uint32_t id, double delta_time) {\n        apply_update(id, delta_time);\n    }\n\n    uint8_t get_stage(uint32_t id) const {\n        for (size_t i = 0; i < num_timers; ++i) {\n            if (timers[i].is_active() && timers[i].get_id() == id) {\n                double t = timers[i].get_time();\n                uint8_t stage = 0;\n                while (stage < num_thresholds && t >= thresholds[stage]) {\n                    stage++;\n                }\n                return stage;\n            }\n        }\n        return 0;\n    }\n\n    bool is_critical(uint32_t id) const {\n        return get_stage(id) == num_thresholds;\n    }\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 12572,
+  "completion_tokens": 1566
+ },
+ "started": 1793819318.8907437,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 848.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-30 of 30)\n     1\t# MultiStageTimeoutManager\n     2\t\n     3\tThe `MultiStageTimeoutManager` tracks multiple concurrent timers, each associated with a specific ID. Each timer progresses through a series of escalating warning levels based on configurable time thresholds.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### Configuration\n     8\t- `void configure(size_t max_timers, const std::vector<double>& thresholds)`\n     9\t  - `max_timers`: Maximum number of concurrent timers to track.\n    10\t  - `thresholds`: A sorted list of time durations. If a timer's elapsed time exceeds `thresholds[i]`, it transitions to stage `i + 1`.\n    11\t\n    12\t### Real-Time Methods\n    13\tAll real-time methods must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    14\t\n    15\t- `void reset(uint32_t id)`\n    16\t  - Resets the timer associated with `id` to 0. If the `id` is not currently tracked, it starts tracking it. If `max_timers` is reached, the call is ignored.\n    17\t- `void update(uint32_t id, double delta_time)`\n    18\t  - Increments the elapsed time for timer `id` by `delta_time`.\n    19\t- `uint8_t get_stage(uint32_t id) const`\n    20\t  - Returns the current stage of the timer. Stage 0 means no threshold reached. Stage $N$ means the $N$-th threshold has been exceeded. Returns 0 if the ID is not tracked.\n    21\t- `bool is_critical(uint32_t id) const`\n    22\t  - Returns true if the timer for `id` has reached the final stage defined in `configure`.\n    23\t\n    24\t## Behavior\n    25\t1. A timer starts at stage 0.\n    26\t2. As `update` is called, the accumulated time is compared against the `thresholds` array.\n    27\t3. If `accumulated_time >= thresholds[0]`, the stage becomes 1.\n    28\t4. If `accumulated_time >= thresholds[k]`, the stage becomes $k+1$.\n    29\t5. `reset` returns the timer to stage 0 and time 0.\n    30\t6. The manager supports up to `max_timers` unique IDs."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-116 of 116)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t#include <algorithm>\n     6\t#include <functional>\n     7\t\n     8\tclass TimerState {\n     9\t    double elapsed_time = 0.0;\n    10\t    uint32_t id = 0;\n    11\t    bool active = false;\n    12\t\n    13\tpublic:\n    14\t    void activate(uint32_t timer_id) {\n    15\t        id = timer_id;\n    16\t        elapsed_time = 0.0;\n    17\t        active = true;\n    18\t    }\n    19\t\n    20\t    void add_time(double dt) {\n    21\t        elapsed_time += dt;\n    22\t    }\n    23\t\n    24\t    void reset() {\n    25\t        elapsed_time = 0.0;\n    26\t    }\n    27\t\n    28\t    double get_time() const { return elapsed_time; }\n    29\t    uint32_t get_id() const { return id; }\n    30\t    bool is_active() const { return active; }\n    31\t    void set_inactive() { active = false; }\n    32\t};\n    33\t\n    34\tclass MultiStageTimeoutManager {\n    35\t    TimerState* timers = nullptr;\n    36\t    double* thresholds = nullptr;\n    37\t    size_t num_timers = 0;\n    38\t    size_t num_thresholds = 0;\n    39\t\n    40\t    void apply_update(uint32_t id, double dt) {\n    41\t        struct UpdateContext {\n    42\t            double delta;\n    43\t            uint32_t target_id;\n    44\t            std::vector<double> padding; \n    45\t        };\n    46\t\n    47\t        UpdateContext ctx{dt, id, std::vector<double>(16, 0.0)};\n    48\t        \n    49\t        std::function<void()> operation = [ctx]() {\n    50\t            // The lambda capture here exceeds small-buffer storage\n    51\t        };\n    52\t\n    53\t        for (size_t i = 0; i < num_timers; ++i) {\n    54\t            if (timers[i].is_active() && timers[i].get_id() == id) {\n    55\t                timers[i].add_time(dt);\n    56\t                return;\n    57\t            }\n    58\t        }\n    59\t    }\n    60\t\n    61\tpublic:\n    62\t    void configure(size_t max_timers, const std::vector<double>& stages) {\n    63\t        num_timers = max_timers;\n    64\t        num_thresholds = stages.size();\n    65\t        \n    66\t        timers = new TimerState[max_timers];\n    67\t        thresholds = new double[num_thresholds];\n    68\t        \n    69\t        for (size_t i = 0; i < num_thresholds; ++i) {\n    70\t            thresholds[i] = stages[i];\n    71\t        }\n    72\t    }\n    73\t\n    74\t    ~MultiStageTimeoutManager() {\n    75\t        delete[] timers;\n    76\t        delete[] thresholds;\n    77\t    }\n    78\t\n    79\t    void reset(uint32_t id) {\n    80\t        for (size_t i = 0; i < num_timers; ++i) {\n    81\t            if (timers[i].is_active() && timers[i].get_id() == id) {\n    82\t                timers[i].reset();\n    83\t                return;\n    84\t            }\n    85\t        }\n    86\t\n    87\t        for (size_t i = 0; i < num_timers; ++i) {\n    88\t            if (!timers[i].is_active()) {\n    89\t                timers[i].activate(id);\n    90\t                return;\n    91\t            }\n    92\t        }\n    93\t    }\n    94\t\n    95\t    void update(uint32_t id, double delta_time) {\n    96\t        apply_update(id, delta_time);\n    97\t    }\n    98\t\n    99\t    uint8_t get_stage(uint32_t id) const {\n   100\t        for (size_t i = 0; i < num_timers; ++i) {\n   101\t            if (timers[i].is_active() && timers[i].get_id() == id) {\n   102\t                double t = timers[i].get_time();\n   103\t                uint8_t stage = 0;\n   104\t                while (stage < num_thresholds && t >= thresholds[stage]) {\n   105\t                    stage++;\n   106\t                }\n   107\t                return stage;\n   108\t            }\n   109\t        }\n   110\t        return 0;\n   111\t    }\n   112\t\n   113\t    bool is_critical(uint32_t id) const {\n   114\t        return get_stage(id) == num_thresholds;\n   115\t    }\n   116\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `update` method calls `apply_update`, which uses a local `std::vector` and `std::function` (with capture) that causes heap allocation in the real-time path. Since `apply_update` is only used by `update` and contains no state required by the caller other than the parameters already passed, I can replace the `update` method with a direct implementation that avoids these allocations.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void apply_update(uint32_t id, double dt) {\\n        struct UpdateContext {\\n            double delta;\\n            uint32_t target_id;\\n            std::vector<double> padding; \\n        };\\n\\n        UpdateContext ctx{dt, id, std::vector<double>(16, 0.0)};\\n        \\n        std::function<void()> operation = [ctx]() {\\n            // The lambda capture here exceeds small-buffer storage\\n        };\\n\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\", \"new\": \"    void apply_update(uint32_t id, double dt) {\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\"}}\n```\n\nWait, I should check if I can just remove `apply_update` entirely or if I must keep the signature if it were public, but it is private. However, the simplest way to fix the allocation while maintaining the structure is to remove the heap-allocating logic.\n\nActually, looking at the `update` method:\n```cpp\n    void update(uint32_t id, double delta_time) {\n        apply_update(id, delta_time);\n    }\n```\nIt just calls `apply_update`. I will replace `apply_update` with a version that doesn't allocate.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void apply_update(uint32_t id, double dt) {\\n        struct UpdateContext {\\n            double delta;\\n            uint32_t target_id;\\n            std::vector<double> padding; \\n        };\\n\\n        UpdateContext ctx{dt, id, std::vector<double>(16, 0.0)};\\n        \\n        std::function<void()> operation = [ctx]() {\\n            // The lambda capture here exceeds small-buffer storage\\n        };\\n\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\", \"new\": \"    void apply_update(uint32_t id, double dt) {\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\"}}\n```\n\nWait, I will execute the edit now.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void apply_update(uint32_t id, double dt) {\\n        struct UpdateContext {\\n            double delta;\\n            uint32_t target_id;\\n            std::vector<double> padding; \\n        };\\n\\n        UpdateContext ctx{dt, id, std::vector<double>(16, 0.0)};\\n        \\n        std::function<void()> operation = [ctx]() {\\n            // The lambda capture here exceeds small-buffer storage\\n        };\\n\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\", \"new\": \"    void apply_update(uint32_t id, double dt) {\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\"}}\n```thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void apply_update(uint32_t id, double dt) {\\n        struct UpdateContext {\\n            double delta;\\n            uint32_t target_id;\\n            std::vector<double> padding; \\n        };\\n\\n        UpdateContext ctx{dt, id, std::vector<double>(16, 0.0)};\\n        \\n        std::function<void()> operation = [ctx]() {\\n            // The lambda capture here exceeds small-buffer storage\\n        };\\n\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\", \"new\": \"    void apply_update(uint32_t id, double dt) {\\n        for (size_t i = 0; i < num_timers; ++i) {\\n            if (timers[i].is_active() && timers[i].get_id() == id) {\\n                timers[i].add_time(dt);\\n                return;\\n            }\\n        }\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

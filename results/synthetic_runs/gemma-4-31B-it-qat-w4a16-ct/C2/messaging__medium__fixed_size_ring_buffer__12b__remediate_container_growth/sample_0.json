@@ -1,0 +1,107 @@
+{
+ "id": "messaging__medium__fixed_size_ring_buffer__12b__remediate_container_growth",
+ "kernel": "messaging__medium__fixed_size_ring_buffer__12b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1037,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <atomic>\n#include <cstddef>\n\ntemplate <typename T>\nclass FixedRingBuffer {\npublic:\n    void configure(size_t capacity) {\n        capacity_ = capacity;\n        buffer_.resize(capacity);\n        head_ = 0;\n        tail_ = 0;\n        count_ = 0;\n    }\n\n    bool push(const T& item) {\n        size_t current_count = count_.load(std::memory_order_relaxed);\n        if (current_count >= capacity_) {\n            return false;\n        }\n\n        buffer_[head_] = item;\n        head_ = (head_ + 1) % capacity_;\n        count_.fetch_add(1, std::memory_order_release);\n        return true;\n    }\n\n    bool pop(T& item) {\n        size_t current_count = count_.load(std::memory_order_acquire);\n        if (current_count == 0) {\n            return false;\n        }\n\n        item = buffer_[tail_];\n        tail_ = (tail_ + 1) % capacity_;\n        count_.fetch_sub(1, std::memory_order_release);\n        return true;\n    }\n\nprivate:\n    std::vector<T> buffer_;\n    size_t capacity_ = 0;\n    size_t head_ = 0;\n    size_t tail_ = 0;\n    std::atomic<size_t> count_{0};\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 13651,
+  "completion_tokens": 1255
+ },
+ "started": 1793817899.4745483,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1336.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the specification and the current implementation to identify where heap allocations are occurring in the real-time path.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# FixedRingBuffer\n     2\t\n     3\tA thread-safe (single-producer, single-consumer) fixed-size circular buffer for sensor data.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\tConfigures the buffer with a fixed capacity. This is the only method allowed to allocate memory.\n     9\t\n    10\t### `bool push(const T& item)`\n    11\tPushes an item onto the buffer. \n    12\t- Returns `true` if successful.\n    13\t- Returns `false` if the buffer is full.\n    14\t- **Real-time:** Must not allocate, lock, or perform I/O.\n    15\t\n    16\t### `bool pop(T& item)`\n    17\tPops an item from the buffer into the provided reference.\n    18\t- Returns `true` if an item was retrieved.\n    19\t- Returns `false` if the buffer is empty.\n    20\t- **Real-time:** Must not allocate, lock, or perform I/O.\n    21\t\n    22\t## Constraints\n    23\t- The buffer is a Ring Buffer.\n    24\t- The implementation must be thread-safe for Single-Producer (push) and Single-Consumer (pop) concurrency.\n    25\t- Real-time methods (`push`, `pop`) must be O(1).\n    26\t- Real-time methods must not allocate heap memory, throw exceptions, use mutexes, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation of `kernel.hpp` to identify the heap allocations in the `push` and `pop` methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-59 of 59)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <atomic>\n     4\t#include <cstddef>\n     5\t\n     6\ttemplate <typename T>\n     7\tclass FixedRingBuffer {\n     8\tpublic:\n     9\t    void configure(size_t capacity) {\n    10\t        buffer_.clear();\n    11\t        capacity_ = capacity;\n    12\t        head_ = 0;\n    13\t        tail_ = 0;\n    14\t        count_ = 0;\n    15\t    }\n    16\t\n    17\t    bool push(const T& item) {\n    18\t        size_t current_count = count_.load(std::memory_order_relaxed);\n    19\t        if (current_count >= capacity_) {\n    20\t            return false;\n    21\t        }\n    22\t\n    23\t        if (buffer_.size() < capacity_) {\n    24\t            buffer_.push_back(item);\n    25\t        } else {\n    26\t            buffer_[head_] = item;\n    27\t            head_ = (head_ + 1) % capacity_;\n    28\t        }\n    29\t\n    30\t        head_ = (head_ + 1) % capacity_;\n    31\t        count_.fetch_add(1, std::memory_order_release);\n    32\t        return true;\n    33\t    }\n    34\t\n    35\t    bool pop(T& item) {\n    36\t        size_t current_count = count_.load(std::memory_order_acquire);\n    37\t        if (current_count == 0) {\n    38\t            return false;\n    39\t        }\n    40\t\n    41\t        if (buffer_.size() > 0 && head_ == 0) {\n    42\t            item = buffer_.front();\n    43\t            buffer_.erase(buffer_.begin());\n    44\t        } else {\n    45\t            item = buffer_[tail_];\n    46\t            tail_ = (tail_ + 1) % capacity_;\n    47\t        }\n    48\t\n    49\t        count_.fetch_sub(1, std::memory_order_release);\n    50\t        return true;\n    51\t    }\n    52\t\n    53\tprivate:\n    54\t    std::vector<T> buffer_;\n    55\t    size_t capacity_ = 0;\n    56\t    size_t head_ = 0;\n    57\t    size_t tail_ = 0;\n    58\t    std::atomic<size_t> count_{0};\n    59\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `FixedRingBuffer` has several issues:\n1. `push` uses `buffer_.push_back(item)`, which can allocate memory if the vector grows.\n2. `pop` uses `buffer_.erase(buffer_.begin())`, which is $O(N)$ and may trigger shifts or reallocation (though `erase` usually doesn't reallocate, it's not $O(1)$).\n3. The index logic for `head_` and `tail_` is incorrect and inconsistent.\n4. `head_` and `tail_` are not atomic, which is dangerous for a SPSC buffer unless managed very carefully with memory barriers and the `count_` atomic, but typically head and tail should be atomic in a lock-free ring buffer.\n\nTo fix this:\n1. In `configure`, I will use `buffer_.resize(capacity)` to allocate the memory upfront.\n2. `push` will write to `buffer_[head_]` and increment `head_` modulo `capacity_`.\n3. `pop` will read from `buffer_[tail_]` and increment `tail_` modulo `capacity_`.\n4. I'll ensure the head and tail are updated atomically or handled such that the single-producer/single-consumer constraint is respected.\n\nLet's start by fixing `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t capacity) {\\n        buffer_.clear();\\n        capacity_ = capacity;\\n        head_ = 0;\\n        tail_ = 0;\\n        count_ = 0;\\n    }\", \"new\": \"    void configure(size_t capacity) {\\n        capacity_ = capacity;\\n        buffer_.resize(capacity);\\n        head_ = 0;\\n        tail_ = 0;\\n        count_ = 0;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now rewrite the `push` and `pop` methods to use the pre-allocated buffer and correct the index logic to ensure they are $O(1)$ and allocation-free.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool push(const T& item) {\\n        size_t current_count = count_.load(std::memory_order_relaxed);\\n        if (current_count >= capacity_) {\\n            return false;\\n        }\\n\\n        if (buffer_.size() < capacity_) {\\n            buffer_.push_back(item);\\n        } else {\\n            buffer_[head_] = item;\\n            head_ = (head_ + 1) % capacity_;\\n        }\\n\\n        head_ = (head_ + 1) % capacity_;\\n        count_.fetch_add(1, std::memory_order_release);\\n        return true;\\n    }\", \"new\": \"    bool push(const T& item) {\\n        size_t current_count = count_.load(std::memory_order_relaxed);\\n        if (current_count >= capacity_) {\\n            return false;\\n        }\\n\\n        buffer_[head_] = item;\\n        head_ = (head_ + 1) % capacity_;\\n        count_.fetch_add(1, std::memory_order_release);\\n        return true;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now fix the `pop` method to use the pre-allocated buffer correctly and maintain $O(1)$ complexity without allocations.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool pop(T& item) {\\n        size_t current_count = count_.load(std::memory_order_acquire);\\n        if (current_count == 0) {\\n            return false;\\n        }\\n\\n        if (buffer_.size() > 0 && head_ == 0) {\\n            item = buffer_.front();\\n            buffer_.erase(buffer_.begin());\\n        } else {\\n            item = buffer_[tail_];\\n            tail_ = (tail_ + 1) % capacity_;\\n        }\\n\\n        count_.fetch_sub(1, std::memory_order_release);\\n        return true;\\n    }\", \"new\": \"    bool pop(T& item) {\\n        size_t current_count = count_.load(std::memory_order_acquire);\\n        if (current_count == 0) {\\n            return false;\\n        }\\n\\n        item = buffer_[tail_];\\n        tail_ = (tail_ + 1) % capacity_;\\n        count_.fetch_sub(1, std::memory_order_release);\\n        return true;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have updated `configure` to allocate the required memory upfront using `resize`, and simplified `push` and `pop` to use pre-allocated space with $O(1)$ index arithmetic, removing all heap allocations from the real-time path.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

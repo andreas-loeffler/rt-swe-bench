@@ -1,0 +1,15 @@
+{
+  "id": "rt-006",
+  "track": 1,
+  "source": "upstream fix reverted: ros2_controllers#2624 (backport #2639, 92d148a8)",
+  "package": "mecanum_drive_controller",
+  "probe": "task_rt_006_mecanum_zero",
+  "issue": "issue.md",
+  "base_patch": "base.diff",
+  "test_patch": "test.diff",
+  "files": [
+    "mecanum_drive_controller/src/mecanum_drive_controller.cpp"
+  ],
+  "warmup_cycles": 3,
+  "notes": "naive.diff is the merged upstream fix; it resets the command history with a new std::queue(std::deque{...}) in update()."
+}

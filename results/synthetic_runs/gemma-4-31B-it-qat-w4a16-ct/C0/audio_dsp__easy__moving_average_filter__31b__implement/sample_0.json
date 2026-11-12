@@ -1,0 +1,99 @@
+{
+ "id": "audio_dsp__easy__moving_average_filter__31b__implement",
+ "kernel": "audio_dsp__easy__moving_average_filter__31b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "audio_dsp",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cstddef>\n#include <vector>\n\nclass MovingAverageFilter {\npublic:\n    void configure(size_t window_size) {\n        buffer_.assign(window_size, 0.0f);\n        sum_ = 0.0;\n        head_ = 0;\n        count_ = 0;\n    }\n\n    float process(float input) {\n        if (buffer_.empty()) return 0.0f;\n\n        if (count_ < buffer_.size()) {\n            sum_ += input;\n            buffer_[head_] = input;\n            head_ = (head_ + 1) % buffer_.size();\n            count_++;\n        } else {\n            sum_ = sum_ - buffer_[head_] + input;\n            buffer_[head_] = input;\n            head_ = (head_ + 1) % buffer_.size();\n        }\n\n        return static_cast<float>(sum_ / count_);\n    }\n\nprivate:\n    std::vector<float> buffer_;\n    double sum_ = 0.0;\n    size_t head_ = 0;\n    size_t count_ = 0;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 7347,
+  "completion_tokens": 992
+ },
+ "started": 1793820023.1822224,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1028.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will start by reviewing the specification in `spec.md` and the current state of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-17 of 17)\n     1\t# MovingAverageFilter\n     2\t\n     3\tThe `MovingAverageFilter` computes the arithmetic mean of the last $N$ samples. It implements a sliding window (FIR filter) where the output for the current sample is the average of the most recent $N$ inputs, including the current one.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t window_size)`\n     8\tConfigures the filter with a window size of $N$. This method allocates the necessary memory for the sliding buffer. It must be called before any calls to `process`.\n     9\t\n    10\t### `float process(float input)`\n    11\tAdds a new sample to the window and returns the current moving average.\n    12\t- If the number of samples received since `configure` is $M < N$, the average is calculated over $M$ samples.\n    13\t- Once $M \\ge N$, the average is calculated over the most recent $N$ samples.\n    14\t\n    15\t## Constraints\n    16\t- The `process` method runs on a hard real-time path: it must not allocate heap memory, throw exceptions, use locks, or perform I/O.\n    17\t- Memory is reserved during the `configure` call."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I will examine the current implementation of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-15 of 15)\n     1\t#pragma once\n     2\t\n     3\t#include <cstddef>\n     4\t\n     5\tclass MovingAverageFilter {\n     6\tpublic:\n     7\t    void configure(size_t window_size) {\n     8\t        // TODO: allocate buffer\n     9\t    }\n    10\t\n    11\t    float process(float input) {\n    12\t        // TODO: implement sliding window average\n    13\t        return 0.0f;\n    14\t    }\n    15\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to implement the `MovingAverageFilter` class. \n- `configure(size_t window_size)`: Allocate a buffer of size `window_size`. I'll use a `std::vector<float>` for this.\n- `process(float input)`: Maintain a sliding window of size $N$. I'll use a circular buffer (index and count) to keep track of the samples. I also need to maintain the sum of the samples in the window to ensure $O(1)$ complexity for the average calculation, as it's on a hard real-time path.\n\nWait, for floating point numbers, accumulating a sum over a long period might lead to precision drift. However, with a fixed window size $N$, we only subtract the oldest element and add the newest. Since the window size is likely reasonable, a running sum is usually acceptable, but to be safer and strictly follow the \"average of the last N samples\" requirement without drift over millions of iterations, I should be careful. But usually, for a Moving Average Filter in this context, a running sum is the intended $O(1)$ implementation.\n\nLet's refine the plan:\n1. Add `#include <vector>` and `#include <numeric>`.\n2. Add private members: `std::vector<float> buffer_`, `size_t head_ = 0`, `size_t count_ = 0`, and `double sum_ = 0.0` (using `double` for the sum to reduce precision loss).\n\nActually, if I use a running sum, I must be careful. Let's check the spec: \"the average is calculated over the most recent N samples\".\nIf I use a running sum: `sum += input - buffer[head]`.\nIf I want to be perfectly precise, I could sum the buffer every time, but that would be $O(N)$, which might be too slow for \"hard real-time\" if $N$ is large. $O(1)$ is preferred.\n\nLet's implement with a running sum using `double` for better precision.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstddef>\", \"new\": \"#include <cstddef>\\n#include <vector>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MovingAverageFilter {\\npublic:\\n    void configure(size_t window_size) {\\n        // TODO: allocate buffer\\n    }\\n\\n    float process(float input) {\\n        // TODO: implement sliding window average\\n        return 0.0f;\\n    }\\n};\", \"new\": \"class MovingAverageFilter {\\npublic:\\n    void configure(size_t window_size) {\\n        buffer_.assign(window_size, 0.0f);\\n        sum_ = 0.0;\\n        head_ = 0;\\n        count_ = 0;\\n    }\\n\\n    float process(float input) {\\n        if (buffer_.empty()) return 0.0f;\\n\\n        if (count_ < buffer_.size()) {\\n            sum_ += input;\\n            buffer_[head_] = input;\\n            head_ = (head_ + 1) % buffer_.size();\\n            count_++;\\n        } else {\\n            sum_ = sum_ - buffer_[head_] + input;\\n            buffer_[head_] = input;\\n            head_ = (head_ + 1) % buffer_.size();\\n        }\\n\\n        return static_cast<float>(sum_ / count_);\\n    }\\n\\nprivate:\\n    std::vector<float> buffer_;\\n    double sum_ = 0.0;\\n    size_t head_ = 0;\\n    size_t count_ = 0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

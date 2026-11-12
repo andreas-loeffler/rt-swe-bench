@@ -1,0 +1,110 @@
+{
+ "id": "signal_processing__medium__exponential_moving_average__31b",
+ "idea": {
+  "domain": "signal_processing",
+  "level": "medium",
+  "name": "exponential_moving_average",
+  "class": "ExponentialMovingAverage",
+  "summary": "Computes a first-order IIR low-pass filter to smooth input signals with a configurable time constant.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 7,
+   "compiled": 7,
+   "killed": 6,
+   "kill_rate": 0.857,
+   "survivors": [
+    "line 16: * -> /"
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 11,
+     "allocs": 11,
+     "bytes": 16376,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 11
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 700,
+     "allocs": 2100,
+     "bytes": 123200,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 2100
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp",
+    "std_function.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

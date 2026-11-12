@@ -1,0 +1,99 @@
+{
+ "id": "data_structures__medium__lock_free_ring_buffer__31b__implement",
+ "kernel": "data_structures__medium__lock_free_ring_buffer__31b",
+ "kind": "implement",
+ "level": "medium",
+ "domain": "data_structures",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1054,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cstddef>\n#include <atomic>\n#include <memory>\n\ntemplate <typename T>\nclass LockFreeRingBuffer {\npublic:\n    LockFreeRingBuffer() = default;\n\n    void configure(size_t capacity) {\n        buffer_ = std::make_unique<T[]>(capacity + 1);\n        capacity_ = capacity + 1;\n        head_.store(0, std::memory_order_relaxed);\n        tail_.store(0, std::memory_order_relaxed);\n    }\n\n    bool push(T value) {\n        size_t current_head = head_.load(std::memory_order_relaxed);\n        size_t next_head = (current_head + 1) % capacity_;\n        if (next_head == tail_.load(std::memory_order_acquire)) {\n            return false;\n        }\n        buffer_[current_head] = std::move(value);\n        head_.store(next_head, std::memory_order_release);\n        return true;\n    }\n\n    bool pop(T& result) {\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\n        if (current_tail == head_.load(std::memory_order_acquire)) {\n            return false;\n        }\n        result = std::move(buffer_[current_tail]);\n        tail_.store((current_tail + 1) % capacity_, std::memory_order_release);\n        return true;\n    }\n\nprivate:\n    std::unique_ptr<T[]> buffer_;\n    size_t capacity_ = 0;\n    std::atomic<size_t> head_{0};\n    std::atomic<size_t> tail_{0};\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 7641,
+  "completion_tokens": 879
+ },
+ "started": 1793816417.2434487,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1046.3,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "// First, I need to see the specification to understand what the kernel class should do.\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# LockFreeRingBuffer\n     2\t\n     3\tA thread-safe, single-producer single-consumer (SPSC) lock-free ring buffer designed for high-performance data transfer between a producer thread and a consumer thread in real-time systems.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\tInitializes the internal buffer to hold up to `capacity` elements. This method is called once before any real-time operations and is permitted to allocate memory.\n     9\t\n    10\t### `bool push(T value)`\n    11\tAttempts to add an element to the buffer.\n    12\t- **Returns**: `true` if the value was successfully added; `false` if the buffer is full.\n    13\t- **Preconditions**: `configure` must have been called.\n    14\t- **Real-time Constraint**: Must not allocate, lock, throw, or perform I/O.\n    15\t\n    16\t### `bool pop(T& result)`\n    17\tAttempts to remove an element from the buffer and store it in `result`.\n    18\t- **Returns**: `true` if a value was successfully retrieved; `false` if the buffer is empty.\n    19\t- **Preconditions**: `configure` must have called.\n    20\t- **Real-time Constraint**: Must not allocate, lock, throw, or perform I/O.\n    21\t\n    22\t## Behavior\n    23\t- The buffer operates on a First-In-First-Out (FIFO) basis.\n    24\t- Wrap-around logic is handled internally to reuse the fixed-size allocation.\n    25\t- The buffer is \"full\" when adding one more element would cause the write index to overlap with the read index."
+  },
+  {
+   "role": "assistant",
+   "content": "// Now I need to see the current state of kernel.hpp to see where to implement the logic.\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-23 of 23)\n     1\t#pragma once\n     2\t\n     3\t#include <cstddef>\n     4\t\n     5\ttemplate <typename T>\n     6\tclass LockFreeRingBuffer {\n     7\tpublic:\n     8\t    LockFreeRingBuffer() = default;\n     9\t\n    10\t    void configure(size_t capacity) {\n    11\t        // TODO: Allocate internal buffer\n    12\t    }\n    13\t\n    14\t    bool push(T value) {\n    15\t        // TODO: Implement lock-free push\n    16\t        return false;\n    17\t    }\n    18\t\n    19\t    bool pop(T& result) {\n    20\t        // TODO: Implement lock-free pop\n    21\t        return false;\n    22\t    }\n    23\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "// I need to implement a Single-Producer Single-Consumer (SPSC) lock-free ring buffer.\n// For SPSC, I can use `std::atomic` for the head and tail indices.\n// I'll use a capacity of size+1 to distinguish between full and empty, or track the count.\n// The standard way for SPSC ring buffers is to have the producer update the head and the consumer update the tail.\n// I'll need `<atomic>` and `<memory>`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstddef>\", \"new\": \"#include <cstddef>\\n#include <atomic>\\n#include <memory>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class LockFreeRingBuffer {\\npublic:\\n    LockFreeRingBuffer() = default;\\n\\n    void configure(size_t capacity) {\\n        // TODO: Allocate internal buffer\\n    }\\n\\n    bool push(T value) {\\n        // TODO: Implement lock-free push\\n        return false;\\n    }\\n\\n    bool pop(T& result) {\\n        // TODO: Implement lock-free pop\\n        return false;\\n    }\\n};\", \"new\": \"class LockFreeRingBuffer {\\npublic:\\n    LockFreeRingBuffer() = default;\\n\\n    void configure(size_t capacity) {\\n        buffer_ = std::make_unique<T[]>(capacity + 1);\\n        capacity_ = capacity + 1;\\n        head_.store(0, std::memory_order_relaxed);\\n        tail_.store(0, std::memory_order_relaxed);\\n    }\\n\\n    bool push(T value) {\\n        size_t current_head = head_.load(std::memory_order_relaxed);\\n        size_t next_head = (current_head + 1) % capacity_;\\n        if (next_head == tail_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        buffer_[current_head] = std::move(value);\\n        head_.store(next_head, std::memory_order_release);\\n        return true;\\n    }\\n\\n    bool pop(T& result) {\\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\\n        if (current_tail == head_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        result = std::move(buffer_[current_tail]);\\n        tail_.store((current_tail + 1) % capacity_, std::memory_order_release);\\n        return true;\\n    }\\n\\nprivate:\\n    std::unique_ptr<T[]> buffer_;\\n    size_t capacity_ = 0;\\n    std::atomic<size_t> head_{0};\\n    std::atomic<size_t> tail_{0};\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "// I have implemented the SPSC lock-free ring buffer using `std::atomic` with appropriate memory orders (acquire/release) to ensure thread safety between the producer and consumer. I've used a buffer size of `capacity + 1` to distinguish between the empty and full states. Now I will test the implementation.\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

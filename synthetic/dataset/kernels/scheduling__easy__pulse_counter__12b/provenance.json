@@ -1,0 +1,108 @@
+{
+ "id": "scheduling__easy__pulse_counter__12b",
+ "idea": {
+  "domain": "scheduling",
+  "level": "easy",
+  "name": "pulse_counter",
+  "class": "PulseCounter",
+  "summary": "Increments a counter on every rising edge of a signal while managing a count-based threshold.",
+  "generator": "12b"
+ },
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 850,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 850,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 5,
+   "compiled": 5,
+   "killed": 5,
+   "kill_rate": 1.0,
+   "survivors": []
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 850,
+     "allocating_cycles": 575,
+     "allocs": 575,
+     "bytes": 4600,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 575
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 850,
+     "allocating_cycles": 575,
+     "allocs": 575,
+     "bytes": 4600,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 575
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": false
+}

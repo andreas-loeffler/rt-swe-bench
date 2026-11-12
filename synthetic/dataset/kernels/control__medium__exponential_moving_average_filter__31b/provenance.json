@@ -1,0 +1,120 @@
+{
+ "id": "control__medium__exponential_moving_average_filter__31b",
+ "idea": {
+  "domain": "control",
+  "level": "medium",
+  "name": "exponential_moving_average_filter",
+  "class": "ExponentialMovingAverage",
+  "summary": "Computes a weighted average of the current input and previous state to smooth signals without a large buffer.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 804,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 804,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 9,
+   "compiled": 9,
+   "killed": 8,
+   "kill_rate": 0.889,
+   "survivors": [
+    "line 34: 0.0 -> 1.0"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 804,
+     "allocating_cycles": 798,
+     "allocs": 798,
+     "bytes": 19152,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 798
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 804,
+     "allocating_cycles": 802,
+     "allocs": 1604,
+     "bytes": 73784,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1604
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G2: kill rate 0.78 of 9 compiling mutants",
+   "by": "31b",
+   "files": [
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": true
+}

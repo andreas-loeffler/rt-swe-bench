@@ -1,0 +1,107 @@
+{
+ "id": "messaging__medium__fixed_capacity_command_queue__31b__implement",
+ "kernel": "messaging__medium__fixed_capacity_command_queue__31b",
+ "kind": "implement",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstdint>\n#include <atomic>\n#include <vector>\n\nclass FixedCapacityCommandQueue {\n    struct Packet {\n        uint32_t id;\n        float value;\n    };\n\n    std::vector<Packet> buffer_;\n    std::atomic<size_t> head_{0};\n    std::atomic<size_t> tail_{0};\n    size_t capacity_{0};\n\npublic:\n    void configure(size_t capacity) {\n        buffer_.resize(capacity);\n        capacity_ = capacity;\n        head_.store(0);\n        tail_.store(0);\n    }\n\n    bool push(uint32_t id, float value) {\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\n        size_t current_head = head_.load(std::memory_order_acquire);\n        if (current_tail - current_head >= capacity_) {\n            return false;\n        }\n        buffer_[current_tail % capacity_] = {id, value};\n        tail_.store(current_tail + 1, std::memory_order_release);\n        return true;\n    }\n\n    bool pop(uint32_t& id, float& value) {\n        size_t current_head = head_.load(std::memory_order_relaxed);\n        size_t current_tail = tail_.load(std::memory_order_acquire);\n        if (current_head == current_tail) {\n            return false;\n        }\n        Packet p = buffer_[current_head % capacity_];\n        id = p.id;\n        value = p.value;\n        head_.store(current_head + 1, std::memory_order_release);\n        return true;\n    }\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 12212,
+  "completion_tokens": 1657
+ },
+ "started": 1793818738.9575632,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1040.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by reading the specification to understand the requirements for the `Kernel` class.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-27 of 27)\n     1\t# FixedCapacityCommandQueue\n     2\t\n     3\tThe `FixedCapacityCommandQueue` manages a fixed-capacity, lock-free Single-Producer Single-Consumer (SPSC) FIFO queue of command packets. It is designed for domain messaging between a non-real-time thread (producer) and a real-time thread (consumer), or between two real-time threads.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\t- Called once before real-time execution.\n     9\t- Reserves memory for the queue to hold up to `capacity` packets.\n    10\t- Precondition: Must be called before `push` or `pop`.\n    11\t\n    12\t### `bool push(uint32_t id, float value)`\n    13\t- Adds a command packet (ID and value) to the tail of the queue.\n    14\t- Returns `true` if the packet was successfully queued.\n    15\t- Returns `false` if the queue is full (saturation handling).\n    16\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    17\t\n    18\t### `bool pop(uint32_t& id, float& value)`\n    19\t- Removes the command packet from the head of the queue and populates the output parameters.\n    20\t- Returns `true` if a packet was retrieved.\n    21\t- Returns `false` if the queue is empty.\n    22\t- **Real-time constraint**: Must not allocate, lock, throw, or perform I/O.\n    23\t\n    24\t## Behavior\n    25\t- The queue operates as a FIFO.\n    26\t- If the queue is full, `push` fails immediately without blocking or overwriting existing data.\n    27\t- Memory is managed as a ring buffer to handle wrap-around logic."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current content of `kernel.hpp` to see the stub implementation.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-19 of 19)\n     1\t#pragma once\n     2\t#include <cstdint>\n     3\t\n     4\tclass FixedCapacityCommandQueue {\n     5\tpublic:\n     6\t    void configure(size_t capacity) {\n     7\t        // TODO: Implement\n     8\t    }\n     9\t\n    10\t    bool push(uint32_t id, float value) {\n    11\t        // TODO: Implement\n    12\t        return false;\n    13\t    }\n    14\t\n    15\t    bool pop(uint32_t& id, float& value) {\n    16\t        // TODO: Implement\n    17\t        return false;\n    18\t    }\n    19\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will implement the `FixedCapacityCommandQueue` using a ring buffer with `std::atomic` indices to ensure it is lock-free and safe for SPSC (Single-Producer Single-Consumer) usage.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <cstdint>\\n\\nclass FixedCapacityCommandQueue {\\npublic:\\n    void configure(size_t capacity) {\\n        // TODO: Implement\\n    }\\n\\n    bool push(uint32_t id, float value) {\\n        // TODO: Implement\\n        return false;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\\n        // TODO: Implement\\n        return false;\\n    }\\n};\", \"new\": \"#include <cstdint>\\n#include <atomic>\\n#include <vector>\\n\\nclass FixedCapacityCommandQueue {\\n    struct Packet {\\n        uint32_t id;\\n        float value;\\n    };\\n\\n    std::vector<Packet> buffer_;\\n    std::atomic<size_t> head_{0};\\n    std::atomic<size_t> tail_{0};\\n    size_t capacity_{0};\\n\\npublic:\\n    void configure(size_t capacity) {\\n        buffer_.resize(capacity);\\n        capacity_ = capacity;\\n        head_.store(0);\\n        tail_.store(0);\\n    }\\n\\n    bool push(uint32_t id, float value) {\\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\\n        size_t next_tail = (current_tail + 1) % capacity_;\\n        if (next_tail == head_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        buffer_[current_tail] = {id, value};\\n        tail_.store(next_tail, std::memory_order_release);\\n        return true;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\\n        size_t current_head = head_.load(std::memory_order_relaxed);\\n        if (current_head == tail_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        Packet p = buffer_[current_head];\\n        id = p.id;\\n        value = p.value;\\n        head_.store((current_head + 1) % capacity_, std::memory_order_release);\\n        return true;\\n    }\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests to verify the implementation of the `FixedCapacityCommandQueue`.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. A functional check failed: capacity_is_exactly_16"
+  },
+  {
+   "role": "assistant",
+   "content": "I noticed that my ring buffer implementation uses `(current_tail + 1) % capacity_ == head_` to detect a full queue, which actually limits the effective capacity to `capacity - 1`. To allow the queue to hold exactly `capacity` elements, I should use a separate counter or track the total number of elements.\n\nHowever, for a lock-free SPSC queue, the simplest way to allow full utilization of the buffer without a separate counter is to use indices that wrap around a buffer size that is a power of two, or more simply, maintain the indices and a `count` atomic (though `count` requires atomic increments from both sides). \n\nActually, the most robust way to implement a lock-free SPSC ring buffer with exactly `N` capacity is to use indices and a `size_t` that increments monotonically, using the modulo operator only when indexing into the array. But to detect full/empty, the distance between `tail` and `head` must be checked.\n\nIf `tail - head == capacity`, it's full. If `tail == head`, it's empty.\n\nLet's refine the implementation.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool push(uint32_t id, float value) {\\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\\n        size_t next_tail = (current_tail + 1) % capacity_;\\n        if (next_tail == head_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        buffer_[current_tail] = {id, value};\\n        tail_.store(next_tail, std::memory_order_release);\\n        return true;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\\n        size_t current_head = head_.load(std::memory_order_relaxed);\\n        if (current_head == tail_.load(std::memory_order_acquire)) {\\n            return false;\\n        }\\n        Packet p = buffer_[current_head];\\n        id = p.id;\\n        value = p.value;\\n        head_.store((current_head + 1) % capacity_, std::memory_order_release);\\n        return true;\\n    }\\n\", \"new\": \"    bool push(uint32_t id, float value) {\\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\\n        size_t current_head = head_.load(std::memory_order_acquire);\\n        if (current_tail - current_head >= capacity_) {\\n            return false;\\n        }\\n        buffer_[current_tail % capacity_] = {id, value};\\n        tail_.store(current_tail + 1, std::memory_order_release);\\n        return true;\\n    }\\n\\n    bool pop(uint32_t& id, float& value) {\\n        size_t current_head = head_.load(std::memory_order_relaxed);\\n        size_t current_tail = tail_.load(std::memory_order_acquire);\\n        if (current_head == current_tail) {\\n            return false;\\n        }\\n        Packet p = buffer_[current_head % capacity_];\\n        id = p.id;\\n        value = p.value;\\n        head_.store(current_head + 1, std::memory_order_release);\\n        return true;\\n    }\\n\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests again to verify that the queue now supports the full capacity.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have implemented the `FixedCapacityCommandQueue` as a lock-free SPSC ring buffer using `std::atomic` indices. The `configure` method pre-allocates the necessary memory, and the `push` and `pop` methods operate in constant time without heap allocation or locks, satisfying the real-time constraints. The use of monotonically increasing indices and the modulo operator ensures that the full requested capacity is utilized.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

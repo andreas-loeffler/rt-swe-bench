@@ -1,0 +1,88 @@
+{
+ "id": "scheduling__hard__hysteresis_debouncer_array__31b__remediate_container_growth",
+ "kernel": "scheduling__hard__hysteresis_debouncer_array__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 4,
+   "F": 1,
+   "R": 0,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 1,
+     "allocs": 3,
+     "bytes": 112,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 3
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cstddef>\n\nclass DebounceChannel {\npublic:\n    void reset() {\n        current_state_ = false;\n        timer_ = 0.0;\n    }\n\n    bool update(bool input, double period, double threshold) {\n        if (input == current_state_) {\n            timer_ = 0.0;\n        } else {\n            timer_ += period;\n            if (timer_ >= threshold) {\n                current_state_ = input;\n                timer_ = 0.0;\n            }\n        }\n        return current_state_;\n    }\n\nprivate:\n    bool current_state_ = false;\n    double timer_ = 0.0;\n};\n\nclass HysteresisDebouncerArray {\npublic:\n    void configure(size_t num_channels, double sample_period_sec, double debounce_time_sec) {\n        channels_.clear();\n        sample_period_ = sample_period_sec;\n        threshold_ = debounce_time_sec;\n        num_channels_ = num_channels;\n    }\n\n    void process(const bool* inputs, bool* outputs) {\n        for (size_t i = 0; i < num_channels_; ++i) {\n            outputs[i] = update_channel(i, inputs[i]);\n        }\n    }\n\nprivate:\n    bool update_channel(size_t index, bool input) {\n        if (index >= channels_.size()) {\n            DebounceChannel ch;\n            ch.reset();\n            channels_.push_back(ch);\n        }\n        return channels_[index].update(input, sample_period_, threshold_);\n    }\n\n    std::vector<DebounceChannel> channels_;\n    double sample_period_ = 0.0;\n    double threshold_ = 0.0;\n    size_t num_channels_ = 0;\n};\n"
+  }
+ ],
+ "steps": 4,
+ "usage": {
+  "prompt_tokens": 5862,
+  "completion_tokens": 604
+ },
+ "started": 1793815650.4709148,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 0,
+ "repair_rounds": 0,
+ "seconds": 430.2,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the specification to understand the required functionality and the current state of `kernel.hpp` to identify where heap allocations are occurring in the real-time paths.\n\nthought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\", \"start\": 1, \"end\": 300}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-23 of 23)\n     1\t# HysteresisDebouncerArray\n     2\t\n     3\tThe `HysteresisDebouncerArray` processes a batch of digital input channels. Each channel must maintain a stable state (true or false). A state change is only registered if the input remains at the new value for a continuous duration exceeding a configured time threshold. If the input fluctuates before the threshold is reached, the timer resets.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t num_channels, double sample_period_sec, double debounce_time_sec)`\n     8\t- `num_channels`: Number of digital input signals to track.\n     9\t- `sample_period_sec`: The time interval between calls to `process`.\n    10\t- `debounce_time_sec`: The required duration of stability to trigger a state change.\n    11\t- Precondition: Called once before any real-time calls. May allocate memory.\n    12\t\n    13\t### `void process(const bool* inputs, bool* outputs)`\n    14\t- `inputs`: Array of current raw digital readings (size `num_channels`).\n    15\t- `outputs`: Array where the debounced state for each channel is written (size `num_channels`).\n    16\t- Precondition: `configure` must have been called. Both arrays must be at least `num_channels` in size.\n    17\t- Real-time Constraint: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    18\t\n    19\t## Behavior\n    20\tFor each channel $i$:\n    21\t1. If `inputs[i]` is equal to the current `stabilized_state[i]`, the timer for channel $i$ is reset to 0.\n    22\t2. If `inputs[i]` is different from `stabilized_state[i]`, the timer increments by `sample_period_sec`.\n    23\t3. If the timer reaches or exceeds `debounce_time_sec`, the `stabilized_state[i]` is flipped to match `inputs[i]` and the timer is reset."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1, \"end\": 250}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-60 of 60)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstddef>\n     5\t\n     6\tclass DebounceChannel {\n     7\tpublic:\n     8\t    void reset() {\n     9\t        current_state_ = false;\n    10\t        timer_ = 0.0;\n    11\t    }\n    12\t\n    13\t    bool update(bool input, double period, double threshold) {\n    14\t        if (input == current_state_) {\n    15\t            timer_ = 0.0;\n    16\t        } else {\n    17\t            timer_ += period;\n    18\t            if (timer_ >= threshold) {\n    19\t                current_state_ = input;\n    20\t                timer_ = 0.0;\n    21\t            }\n    22\t        }\n    23\t        return current_state_;\n    24\t    }\n    25\t\n    26\tprivate:\n    27\t    bool current_state_ = false;\n    28\t    double timer_ = 0.0;\n    29\t};\n    30\t\n    31\tclass HysteresisDebouncerArray {\n    32\tpublic:\n    33\t    void configure(size_t num_channels, double sample_period_sec, double debounce_time_sec) {\n    34\t        channels_.clear();\n    35\t        sample_period_ = sample_period_sec;\n    36\t        threshold_ = debounce_time_sec;\n    37\t        num_channels_ = num_channels;\n    38\t    }\n    39\t\n    40\t    void process(const bool* inputs, bool* outputs) {\n    41\t        for (size_t i = 0; i < num_channels_; ++i) {\n    42\t            outputs[i] = update_channel(i, inputs[i]);\n    43\t        }\n    44\t    }\n    45\t\n    46\tprivate:\n    47\t    bool update_channel(size_t index, bool input) {\n    48\t        if (index >= channels_.size()) {\n    49\t            DebounceChannel ch;\n    50\t            ch.reset();\n    51\t            channels_.push_back(ch);\n    52\t        }\n    53\t        return channels_[index].update(input, sample_period_, threshold_);\n    54\t    }\n    55\t\n    56\t    std::vector<DebounceChannel> channels_;\n    57\t    double sample_period_ = 0.0;\n    58\t    double threshold_ = 0.0;\n    59\t    size_t num_channels_ = 0;\n    60\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `HysteresisDebouncerArray` violates the real-time constraint because `update_channel` (called within `process`) can trigger a heap allocation via `std::vector::push_back`. The specification requires that memory is allocated during `configure` and reused in `process`. I need to move the `std::vector` resizing/allocation logic to `configure` and remove the dynamic allocation from the real-time path.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t num_channels, double sample_period_sec, double debounce_time_sec) {\\n        channels_.clear();\\n        sample_period_ = sample_period_sec;\\n        threshold_ = debounce_time_sec;\\n        num_channels_ = num_channels;\\n    }\", \"new\": \"    void configure(size_t num_channels, double sample_period_sec, double debounce_time_sec) {\\n        channels_.clear();\\n        channels_.resize(num_channels);\\n        for (auto& ch : channels_) {\\n            ch.reset();\\n        }\\n        sample_period_ = sample_period_sec;\\n        threshold_ = debounce_time_sec;\\n        num_channels_ = num_channels;\\n    }\"}}\n```\n\nthought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool update_channel(size_t index, bool input) {\\n        if (index >= channels_.size()) {\\n            DebounceChannel ch;\\n            ch.reset();\\n            channels_.push_back(ch);\\n        }\\n        return channels_[index].update(input, sample_period_, threshold_);\\n    }\", \"new\": \"    bool update_channel(size_t index, bool input) {\\n        return channels_[index].update(input, sample_period_, threshold_);\\n    }\"}}\n```\n\nthought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

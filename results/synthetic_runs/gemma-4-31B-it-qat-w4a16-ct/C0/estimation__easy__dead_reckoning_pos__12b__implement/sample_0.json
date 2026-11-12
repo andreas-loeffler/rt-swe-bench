@@ -1,0 +1,91 @@
+{
+ "id": "estimation__easy__dead_reckoning_pos__12b__implement",
+ "kernel": "estimation__easy__dead_reckoning_pos__12b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "estimation",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n\nclass DeadReckoningPos {\npublic:\n    void configure(size_t window_size) {\n        buffer.assign(window_size, 0.0);\n        max_size = window_size;\n        head = 0;\n        current_size = 0;\n        sum = 0.0;\n    }\n\n    void update(double velocity) {\n        if (max_size == 0) return;\n        if (current_size == max_size) {\n            sum -= buffer[head];\n        } else {\n            current_size++;\n        }\n        buffer[head] = velocity;\n        sum += velocity;\n        head = (head + 1) % max_size;\n    }\n\n    double get_position() const {\n        return sum;\n    }\n\nprivate:\n    std::vector<double> buffer;\n    size_t max_size = 0;\n    size_t head = 0;\n    size_t current_size = 0;\n    double sum = 0.0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7949,
+  "completion_tokens": 1931
+ },
+ "started": 1793816387.5604053,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 842.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification to understand the requirements for the `Kernel` class.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-23 of 23)\n     1\t# DeadReckoningPos\n     2\t\n     3\tThis kernel estimates a robot's current position by integrating a sequence of velocity measurements over a fixed historical window.\n     4\t\n     5\t## API\n     6\t\n     7\t### `configure(size_t window_size)`\n     8\tConfigures the kernel with the number of previous velocity measurements to consider.\n     9\t- **Preconditions**: `window_size > 0`.\n    10\t- **Side Effects**: Allocates memory proportional to `window_size`.\n    11\t\n    12\t### `update(double velocity)`\n    13\tAdds a new velocity measurement to the history. If the history is full, the oldest measurement is discarded.\n    14\t- **Returns**: `void`\n    15\t- **Real-time**: Must not allocate, lock, or perform I/O.\n    16\t\n    17\t### `get_position()`\n    18\tCalculates the current estimated position. The position is the sum of all velocities currently stored in the history buffer.\n    19\t- **Returns**: `double`\n    20\t- **Real-time**: Must not allocate, lock, or perform I/O.\n    21\t\n    22\t## Behavior\n    23\tThe kernel maintains a circular buffer of velocities. `update` pushes a new velocity into the buffer. `get_position` returns the sum of all elements currently in the buffer. If the buffer is not full yet (e.g., after fewer than `window_size` updates), only the received velocities are summed."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current state of `kernel.hpp` to see how the API is stubbed.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-20 of 20)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t\n     4\tclass DeadReckoningPos {\n     5\tpublic:\n     6\t    void configure(size_t window_size) {\n     7\t        // TODO\n     8\t    }\n     9\t\n    10\t    void update(double velocity) {\n    11\t        // TODO\n    12\t    }\n    13\t\n    14\t    double get_position() const {\n    15\t        return 0.0;\n    16\t    }\n    17\t\n    18\tprivate:\n    19\t    std::vector<double> buffer;\n    20\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will implement the `DeadReckoningPos` class. I need to maintain a circular buffer and track the current sum of elements to ensure `get_position` is efficient (though a simple sum over the buffer would also work given the constraints, tracking the sum is better for performance). However, for simplicity and robustness against floating point drift (if needed, though not specified), I'll use a circular buffer and track the sum.\n\nWait, the spec says \"The position is the sum of all velocities currently stored in the history buffer.\" A simple `std::vector` used as a circular buffer with a `sum` member variable updated on `update` is the most efficient way.\n\nPlan:\n1. `configure(size_t window_size)`: Initialize the vector size and reset indices/sum.\n2. `update(double velocity)`: If the buffer is full, subtract the oldest value from the sum, overwrite it, and add the new value to the sum.\n3. `get_position()`: Return the current sum.\n\nLet's refine:\n- `buffer` to store velocities.\n- `head` to track the next insertion point.\n- `count` to track how many elements are actually in the buffer (until it reaches `window_size`).\n- `current_sum` to keep track of the sum.\n\nActually, to avoid precision drift over very long periods, summing the buffer in `get_position` is safer, but the spec says `update` must not allocate and `get_position` must not allocate. Summing the vector is $O(N)$. If $N$ is large, that might be slow, but it's constant space. However, tracking the sum is $O(1)$. Given this is a \"kernel\", $O(1)$ is usually preferred. Let's check if there are precision requirements. None specified.\n\nActually, the simplest implementation that is guaranteed to be correct regarding the \"sum of all elements currently stored\" is to just sum them in `get_position` or maintain the sum. I'll maintain the sum and the buffer.\n\n```cpp\nclass DeadReckoningPos {\npublic:\n    void configure(size_t window_size) {\n        buffer.assign(window_size, 0.0);\n        max_size = window_size;\n        head = 0;\n        current_size = 0;\n        sum = 0.0;\n    }\n\n    void update(double velocity) {\n        if (max_size == 0) return;\n        if (current_size == max_size) {\n            sum -= buffer[head];\n        } else {\n            current_size++;\n        }\n        buffer[head] = velocity;\n        sum += velocity;\n        head = (head + 1) % max_size;\n    }\n\n    double get_position() const {\n        return sum;\n    }\n\nprivate:\n    std::vector<double> buffer;\n    size_t max_size = 0;\n    size_t head = 0;\n    size_t current_size = 0;\n    double sum = 0.0;\n};\n```\n\nWait, I should check if `configure` can be called multiple times. The spec says \"Configures the kernel\", implying it's called once or resets.\n\nLet's implement this.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t window_size) {\\n        // TODO\\n    }\", \"new\": \"    void configure(size_t window_size) {\\n        buffer.assign(window_size, 0.0);\\n        max_size = window_size;\\n        head = 0;\\n        current_size = 0;\\n        sum = 0.0;\\n    }\"}}\n```\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void update(double velocity) {\\n        // TODO\\n    }\", \"new\": \"    void update(double velocity) {\\n        if (max_size == 0) return;\\n        if (current_size == max_size) {\\n            sum -= buffer[head];\\n        } else {\\n            current_size++;\\n        }\\n        buffer[head] = velocity;\\n        sum += velocity;\\n        head = (head + 1) % max_size;\\n    }\"}}\n```\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double get_position() const {\\n        return 0.0;\\n    }\", \"new\": \"    double get_position() const {\\n        return sum;\\n    }\"}}\n```\n\nWait, I need to add the private members.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"private:\\n    std::vector<double> buffer;\", \"new\": \"private:\\n    std::vector<double> buffer;\\n    size_t max_size = 0;\\n    size_t head = 0;\\n    size_t current_size = 0;\\n    double sum = 0.0;\"}}\n```\n\nI will perform these edits now. Actually, I can just replace the whole class body or do it step by step. I'll do it step by step.\n\nWait, I can't do multiple edits in one turn. I will do the private members first.\n\nActually, let's just overwrite the class content more efficiently if possible. I'll start with the private members.\n\nWait, I can't just add variables without updating the methods. Let's do the methods first and then the variables? No, that will fail compilation if I test.\n\nI'll just do one `edit` at a time.\n\nStep 1: Private members.\nStep 2: `configure`.\nStep 3: `update`.\nStep 4: `get_position`.\n\nWait, I can replace a larger block.\n\nLet's try to replace the whole class.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class DeadReckoningPos {\\npublic:\\n    void configure(size_t window_size) {\\n        // TODO\\n    }\\n\\n    void update(double velocity) {\\n        // TODO\\n    }\\n\\n    double get_position() const {\\n        return 0.0;\\n    }\\n\\nprivate:\\n    std::vector<double> buffer;\\n};\", \"new\": \"class DeadReckoningPos {\\npublic:\\n    void configure(size_t window_size) {\\n        buffer.assign(window_size, 0.0);\\n        max_size = window_size;\\n        head = 0;\\n        current_size = 0;\\n        sum = 0.0;\\n    }\\n\\n    void update(double velocity) {\\n        if (max_size == 0) return;\\n        if (current_size == max_size) {\\n            sum -= buffer[head];\\n        } else {\\n            current_size++;\\n        }\\n        buffer[head] = velocity;\\n        sum += velocity;\\n        head = (head + 1) % max_size;\\n    }\\n\\n    double get_position() const {\\n        return sum;\\n    }\\n\\nprivate:\\n    std::vector<double> buffer;\\n    size_t max_size = 0;\\n    size_t head = 0;\\n    size_t current_size = 0;\\n    double sum = 0.0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the test to verify the implementation.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have implemented the `DeadReckoningPos` class according to the specification. It uses a circular buffer to store velocity measurements and maintains a running sum to provide the current estimated position in constant time. The `configure` method initializes the buffer, `update` manages the sliding window, and `get_position` returns the current sum.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

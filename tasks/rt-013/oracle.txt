@@ -1,0 +1,9 @@
+50 of 50 update() cycles allocated, 850 allocations, 32200 bytes in total.
+  450 allocations (16600 bytes) at gpio_controllers::GpioCommandController::update_gpios_commands (ros2_controllers/gpio_controllers/src/gpio_command_controller.cpp:330)
+  200 allocations (7800 bytes) at gpio_controllers::GpioCommandController::update_gpios_commands (ros2_controllers/gpio_controllers/src/gpio_command_controller.cpp:358)
+  200 allocations (7800 bytes) at gpio_controllers::GpioCommandController::update_gpios_states (ros2_controllers/gpio_controllers/src/gpio_command_controller.cpp:406)
+Backtrace of the first allocation site:
+  #3 operator new(unsigned long) at ??:?
+  #4 std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > >::vector(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) at /usr/include/c++/13/bits/stl_vector.h:603
+  #5 control_msgs::msg::DynamicInterfaceGroupValues_<std::allocator<void> >::DynamicInterfaceGroupValues_(control_msgs::msg::DynamicInterfaceGroupValues_<std::allocator<void> > const&) at /opt/ros/jazzy/include/control_msgs/control_msgs/msg/detail/dynamic_interface_group_values__struct.hpp:42 (discriminator 1)
+  #6 gpio_controllers::GpioCommandController::update_gpios_commands() at /ws/src/ros2_controllers/gpio_controllers/src/gpio_command_controller.cpp:330

@@ -1,0 +1,107 @@
+{
+ "id": "control__hard__complementary_filter_bank__31b__remediate_shared_ptr",
+ "kernel": "control__hard__complementary_filter_bank__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <algorithm>\n#include <memory>\n\n/**\n * Internal state and calculation logic for a single axis.\n */\nstruct FilterState {\n    double dt;\n    double alpha;\n    double state = 0.0;\n\n    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n\n    double update(double gyro, double accel) {\n        double angle_gyro = state + (gyro * dt);\n        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n        return state;\n    }\n};\n\nclass ComplementaryFilterBank {\npublic:\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        m_filters.reserve(num_axes);\n        for (size_t i = 0; i < num_axes; ++i) {\n            m_filters.emplace_back(1.0 / sample_rate, alpha);\n        }\n    }\n\n    void process(const double* gyro_rates, const double* accels, double* output) {\n        for (size_t i = 0; i < m_num_axes; ++i) {\n            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\n        }\n    }\n\nprivate:\n    double apply_filter(size_t axis_index, double gyro, double accel) {\n        return m_filters[axis_index].update(gyro, accel);\n    }\n\n    size_t m_num_axes = 0;\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    std::vector<FilterState> m_filters;\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 20409,
+  "completion_tokens": 2455
+ },
+ "started": 1793817406.4778028,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1291.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "call: {\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# ComplementaryFilterBank\n     2\t\n     3\tThe `ComplementaryFilterBank` computes a stable attitude estimate by fusing data from two different sensors (typically an accelerometer/gravimeter for low-frequency stability and a gyroscope for high-frequency responsiveness) across multiple axes.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t num_axes, double sample_rate, double alpha)`\n     8\t- `num_axes`: Number of spatial dimensions (e.g., 3 for XYZ).\n     9\t- `sample_rate`: The sampling frequency in Hz.\n    10\t- `alpha`: The filter coefficient (typically 0.95 to 0.99). Higher values trust the gyroscope more.\n    11\t- **Preconditions**: `num_axes > 0`, `sample_rate > 0`, `0.0 < alpha < 1.0`.\n    12\t- **Note**: This method may allocate memory.\n    13\t\n    14\t### `void process(const double* gyro_rates, const double* accels, double* output)`\n    15\t- `gyro_rates`: Array of size `num_axes` containing angular velocities (rad/s).\n    16\t- `accels`: Array of size `num_axes` containing normalized acceleration vectors (gravity reference).\n    17\t- `output`: Array of size `num_axes` where the estimated attitude (angles) is written.\n    18\t- **Real-time Constraint**: This method must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    19\t\n    20\t## Behavior\n    21\tThe filter maintains an internal state for each axis. For each axis $i$:\n    22\t1. Integrate the gyroscope rate: $\\text{angle}_{gyro} = \\text{angle}_{prev} + (\\text{gyro\\_rate}_i / \\text{sample\\_rate})$.\n    23\t2. Calculate the low-pass estimate from the accelerometer: $\\text{angle}_{accel} = \\text{atan2}(\\text{accel}_i, \\text{accel}_{ref})$ (Note: implementation uses a simplified linear mapping for the benchmark bank).\n    24\t3. Fuse using the complementary formula: $\\text{angle}_{new} = \\alpha \\cdot \\text{angle}_{gyro} + (1 - \\alpha) \\cdot \\text{angle}_{accel}$.\n    25\t\n    26\tThe class handles internal state initialization and maintains the integration across calls."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\ncall: {\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-56 of 56)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cmath>\n     5\t#include <algorithm>\n     6\t#include <memory>\n     7\t\n     8\t/**\n     9\t * Internal state and calculation logic for a single axis.\n    10\t */\n    11\tstruct FilterState {\n    12\t    double dt;\n    13\t    double alpha;\n    14\t    double state = 0.0;\n    15\t\n    16\t    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n    17\t\n    18\t    double update(double gyro, double accel) {\n    19\t        double angle_gyro = state + (gyro * dt);\n    20\t        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n    21\t        return state;\n    22\t    }\n    23\t};\n    24\t\n    25\tclass ComplementaryFilterBank {\n    26\tpublic:\n    27\t    void configure(size_t num_axes, double sample_rate, double alpha) {\n    28\t        m_num_axes = num_axes;\n    29\t        m_dt = 1.0 / sample_rate;\n    30\t        m_alpha = alpha;\n    31\t        \n    32\t        m_filters.clear();\n    33\t        for (size_t i = 0; i < num_axes; ++i) {\n    34\t            m_filters.push_back(nullptr);\n    35\t        }\n    36\t    }\n    37\t\n    38\t    void process(const double* gyro_rates, const double* accels, double* output) {\n    39\t        for (size_t i = 0; i < m_num_axes; ++i) {\n    40\t            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\n    41\t        }\n    42\t    }\n    43\t\n    44\tprivate:\n    45\t    double apply_filter(size_t axis_index, double gyro, double accel) {\n    46\t        if (!m_filters[axis_index]) {\n    47\t            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n    48\t        }\n    49\t        return m_filters[axis_index]->update(gyro, accel);\n    50\t    }\n    51\t\n    52\t    size_t m_num_axes = 0;\n    53\t    double m_dt = 0.0;\n    54\t    double m_alpha = 0.0;\n    55\t    std::vector<std::shared_ptr<FilterState>> m_filters;\n    56\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `process` method calls `apply_filter`, which uses `std::make_shared` to lazily initialize `FilterState` objects. This allocates heap memory during the real-time path. I need to move the allocation of `FilterState` objects into the `configure` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        m_filters.clear();\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.push_back(nullptr);\\n        }\", \"new\": \"        m_filters.clear();\\n        m_filters.reserve(num_axes);\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.emplace_back(std::make_shared<FilterState>(1.0 / sample_rate, alpha));\\n        }\"}}\n```\n\nWait, looking closer at `kernel.hpp`, `m_dt` and `m_alpha` are already members. I should use those. And since `FilterState` is a simple struct, I can just use a `std::vector<FilterState>` instead of `std::vector<std::shared_ptr<FilterState>>` to reduce indirection and overhead.\n\nLet's refine the plan:\n1. Change `std::vector<std::shared_ptr<FilterState>>` to `std::vector<FilterState>`.\n2. Initialize the vector in `configure`.\n3. Remove the lazy initialization in `apply_filter` (or just call `update` directly in `process`).\n\nActually, let's just fix the existing structure first to be safe, but `std::vector<FilterState>` is much cleaner.\n\nRevised plan:\n1. Update `m_filters` type.\n2. Update `configure` to populate `m_filters`.\n3. Update `process` to call `update` on the vector elements.\n\nFirst, let's change the member variable type.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, I must be careful about the `FilterState` constructor. It requires `dt` and `alpha`. I can't use `resize()` if I want to use that constructor, or I can give `FilterState` a default constructor.\n\nActually, `std::vector::emplace_back` or `resize` with a default value.\nLet's check `FilterState` definition:\n```cpp\nstruct FilterState {\n    double dt;\n    double alpha;\n    double state = 0.0;\n\n    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n    ...\n}\n```\nIt doesn't have a default constructor. I'll add one or change how I initialize.\n\nLet's start by changing the member type and adding a default constructor.\n\nActually, the simplest way is to change the member type and use `reserve` + `emplace_back` in `configure`.\n\nStep 1: Change member type.\nStep 2: Update `configure`.\nStep 3: Update `apply_filter` or `process`.\n\nLet's do it.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, if I do that, `m_filters[axis_index]` in `apply_filter` (which is still using `->`) will fail to compile. I need to do multiple edits.\n\nLet's change the member type first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nThen I will update `configure`.\n\nThen I will update `apply_filter`.\n\nActually, I can just remove `apply_filter` and put the logic in `process`.\n\nLet's start.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, if I do that, the code won't compile. But I can't run `test` until the end of the sequence if I want to avoid noise, but I should probably ensure it's correct.\n\nActually, I'll do the `configure` change and the member change together if possible? No, `edit` is one at a time.\n\nLet's try to change `configure` first to use `emplace_back` but it's still `shared_ptr` there.\n\nCorrect sequence:\n1. Change `m_filters` type.\n2. Update `configure` to use `emplace_back` with `make_shared`. (Wait, if type is `FilterState`, `make_shared` is wrong).\n3. Update `apply_filter`.\n\nLet's try this:\n1. Modify `FilterState` to have a default constructor or just handle it in `configure`.\n2. Change `m_filters` type to `std::vector<FilterState>`.\n3. Change `configure` to use `resize` and then set `dt`/`alpha`.\n4. Change `apply_filter` to use `.` instead of `->`.\n\nActually, if I change `m_filters` type first:\n```cpp\n    std::vector<FilterState> m_filters;\n```\nThen `configure`:\n```cpp\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        for (size_t i = 0; i < num_axes; ++i) {\n            m_filters.emplace_back(m_dt, m_alpha);\n        }\n    }\n```\nThen `apply_filter`:\n```cpp\n    double apply_filter(size_t axis_index, double gyro, double accel) {\n        return m_filters[axis_index].update(gyro, accel);\n    }\n```\n\nThis is perfect.\n\nStep 1: Member type.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, I should check if I can just replace the whole `configure` block and `apply_filter` block first? No, the instructions say one action per reply.\n\nLet's go.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, I notice `FilterState` doesn't have a default constructor. `std::vector::resize` would fail, but `emplace_back` works.\n\nLet's start.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, the current `configure` is:\n```cpp\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        for (size_t i = 0; i < num_axes; ++i) {\n            m_filters.push_back(nullptr);\n        }\n    }\n```\nIf I change the type to `FilterState`, `m_filters.push_back(nullptr)` will fail.\n\nSo I must change `configure` first or at the same time.\n\nLet's change `configure` first? No, then it'll try to `emplace_back` into a `vector<shared_ptr>`.\n\nOkay, I'll change the member type, and then immediately change `configure` and `apply_filter`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    std::vector<FilterState> m_filters;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        m_filters.clear();\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.push_back(nullptr);\\n        }\", \"new\": \"        m_filters.clear();\\n        m_filters.reserve(num_axes);\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.emplace_back(1.0 / sample_rate, alpha);\\n        }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double apply_filter(size_t axis_index, double gyro, double accel) {\\n        if (!m_filters[axis_index]) {\\n            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\\n        }\\n        return m_filters[axis_index]->update(gyro, accel);\\n    }\", \"new\": \"    double apply_filter(size_t axis_index, double gyro, double accel) {\\n        return m_filters[axis_index].update(gyro, accel);\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

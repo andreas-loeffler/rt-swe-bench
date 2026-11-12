@@ -1,0 +1,121 @@
+{
+ "id": "messaging__medium__exponential_moving_average_filter__31b",
+ "idea": {
+  "domain": "messaging",
+  "level": "medium",
+  "name": "exponential_moving_average_filter",
+  "class": "ExponentialMovingAverageFilter",
+  "summary": "Processes a stream of incoming sensor messages to compute a smoothed average without dynamic memory.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 9,
+   "compiled": 9,
+   "killed": 8,
+   "kill_rate": 0.889,
+   "survivors": [
+    "line 26: 0.0 -> 1.0"
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 600,
+     "allocs": 600,
+     "bytes": 14400,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 600
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1201,
+     "allocating_cycles": 598,
+     "allocs": 598,
+     "bytes": 9568,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 598
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference.hpp F=0 R=0, reference_2.hpp F=0 R=0",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": true
+}

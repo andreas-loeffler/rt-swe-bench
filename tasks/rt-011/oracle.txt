@@ -1,0 +1,10 @@
+1 of 50 update() cycles allocated, 3 allocations, 256 bytes in total.
+  1 allocations (192 bytes) at ::Params::Gains::MapDofNames> >, std::less<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, pid_controller::Params::Gains::MapDofNames> > >::_Alloc_node&) (/usr/include/c++/13/bits/stl_tree.h:1896)
+  1 allocations (32 bytes) at pid_controller::Params::Params (/ws/build/pid_controller/include/pid_controller/pid_controller_parameters.hpp:72 (discriminator 4))
+  1 allocations (32 bytes) at pid_controller::Params::Params (/ws/build/pid_controller/include/pid_controller/pid_controller_parameters.hpp:72)
+Backtrace of the first allocation site:
+  #3 operator new(unsigned long) at ??:?
+  #4 ::Params::Gains::MapDofNames> >, std::less<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > >, std::allocator<std::pair<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const, pid_controller::Params::Gains::MapDofNames> > >::_Alloc_node&) at /usr/include/c++/13/bits/stl_tree.h:1896
+  #5 /ws/build/pid_controller/include/pid_controller/pid_controller_parameters.hpp:81 (discriminator 2) at pid_controller::Params::Params(pid_controller::Params const&)
+  #6 pid_controller::PidController::update_parameters() at /ws/src/ros2_controllers/pid_controller/src/pid_controller.cpp:98
+  #7 pid_controller::PidController::update_and_write_commands(rclcpp::Time const&, rclcpp::Duration const&) at /ws/src/ros2_controllers/pid_controller/src/pid_controller.cpp:555

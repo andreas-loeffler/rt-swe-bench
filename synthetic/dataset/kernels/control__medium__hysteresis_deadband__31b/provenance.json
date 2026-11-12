@@ -1,0 +1,96 @@
+{
+ "id": "control__medium__hysteresis_deadband__31b",
+ "idea": {
+  "domain": "control",
+  "level": "medium",
+  "name": "hysteresis_deadband",
+  "class": "HysteresisDeadband",
+  "summary": "Filters out small signal oscillations around a zero point using two distinct switching thresholds.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 406,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 406,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 6,
+   "compiled": 6,
+   "killed": 6,
+   "kill_rate": 1.0,
+   "survivors": []
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 0,
+    "F": 0,
+    "R": 0,
+    "alloc": null,
+    "mismatch": "",
+    "build_error": "/localscratch/tmpdir.149986/tmp.uMVvSV3j2F/kernel.hpp:19:32: error: cannot convert \u2018std::vector<double>\u2019 to \u2018double\u2019 in return /localscratch/tmpdir.149986/tmp.uMVvSV3j2F/kernel.hpp:30:24: error: could not convert \u2018input\u2019 from \u2018const double\u2019 to \u2018std::vector<double>\u2019 /localscratch/tmpdir.149986/tmp.uMVvSV3j2F/kernel.hpp:32:20: error: could not convert \u20180.0\u2019 from \u2018double\u2019 to \u2018std::vector<double>\u2019 "
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 406,
+     "allocating_cycles": 406,
+     "allocs": 812,
+     "bytes": 9744,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 812
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

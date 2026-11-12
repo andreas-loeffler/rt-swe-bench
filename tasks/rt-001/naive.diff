@@ -1,0 +1,18 @@
+diff --git a/forward_command_controller/src/forward_controllers_base.cpp b/forward_command_controller/src/forward_controllers_base.cpp
+index e5bb5da1..3f62df44 100644
+--- a/forward_command_controller/src/forward_controllers_base.cpp
++++ b/forward_command_controller/src/forward_controllers_base.cpp
+@@ -138,9 +138,12 @@ controller_interface::CallbackReturn ForwardControllersBase::on_activate(
+   }
+ 
+   // reset command buffer if a command came through callback when controller was inactive
++  // Size it once here, outside the real-time loop, so update() can copy into it
++  // without allocating. NaN means "no command received yet".
+   // Try to set default value in command.
+   // If this fails, then another command will be received soon anyways.
+-  reset_controller_reference_msg(joint_commands_);
++  joint_commands_.data.assign(
++    command_interface_types_.size(), std::numeric_limits<double>::quiet_NaN());
+   rt_command_.try_set(joint_commands_);
+ 
+   RCLCPP_INFO(get_node()->get_logger(), "activate successful");

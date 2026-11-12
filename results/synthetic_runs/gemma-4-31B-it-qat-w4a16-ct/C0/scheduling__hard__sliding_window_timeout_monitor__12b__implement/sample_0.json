@@ -1,0 +1,91 @@
+{
+ "id": "scheduling__hard__sliding_window_timeout_monitor__12b__implement",
+ "kernel": "scheduling__hard__sliding_window_timeout_monitor__12b",
+ "kind": "implement",
+ "level": "hard",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 28,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n\nclass TimeoutMonitor {\npublic:\n    void configure(size_t window_size, double threshold_ms) {\n        m_window_size = window_size;\n        m_threshold = threshold_ms;\n        m_buffer.assign(window_size, 0.0);\n        m_count = 0;\n        m_head = 0;\n    }\n\n    bool push(double timestamp_ms) {\n        if (m_window_size == 0) return false;\n        m_buffer[m_head] = timestamp_ms;\n        m_head = (m_head + 1) % m_window_size;\n        if (m_count < m_window_size) {\n            m_count++;\n        }\n        return true;\n    }\n\n    bool check_timeout() {\n        if (m_count < 2) return false;\n        double first = (m_count < m_window_size) ? m_buffer[0] : m_buffer[m_head];\n        double last = m_buffer[(m_head + m_window_size - 1) % m_window_size];\n        double avg = (last - first) / (m_count - 1);\n        return avg > m_threshold;\n    }\n\nprivate:\n    size_t m_window_size = 0;\n    double m_threshold = 0.0;\n    std::vector<double> m_buffer;\n    size_t m_count = 0;\n    size_t m_head = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 5627,
+  "completion_tokens": 672
+ },
+ "started": 1793822295.5372193,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 899.3,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# TimeoutMonitor\n     2\t\n     3\tA real-time kernel that monitors the timing of a sequence of events using a sliding window to detect if the average inter-arrival time exceeds a specified threshold.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t window_size, double threshold_ms)`\n     8\tInitializes the monitor. \n     9\t- `window_size`: The number of recent events to include in the average calculation.\n    10\t- `threshold_ms`: The maximum allowable average inter-arrival time in milliseconds.\n    11\tThis method may allocate memory.\n    12\t\n    13\t### `bool push(double timestamp_ms)`\n    14\tRecords a new event timestamp (in milliseconds). Returns `true` if the event was successfully recorded, `false` otherwise.\n    15\t**Real-time constraint:** Must not allocate, lock, or perform I/O.\n    16\t\n    17\t### `bool check_timeout()`\n    18\tEvaluates the sliding window of timestamps. \n    19\t- Returns `true` if the average inter-arrival time of the events currently in the window exceeds `threshold_ms`.\n    20\t- Returns `false` otherwise.\n    21\t- If the window contains fewer than 2 events, it returns `false`.\n    22\t**Real-time constraint:** Must not allocate, lock, or perform I/O.\n    23\t\n    24\t**Preconditions:**\n    25\t- `window_size` must be greater than 1.\n    26\t- `timestamp_ms` should be monotonically increasing."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-22 of 22)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t\n     4\tclass TimeoutMonitor {\n     5\tpublic:\n     6\t    void configure(size_t window_size, double threshold_ms) {\n     7\t        // TODO\n     8\t    }\n     9\t\n    10\t    bool push(double timestamp_ms) {\n    11\t        // TODO\n    12\t        return false;\n    13\t    }\n    14\t\n    15\t    bool check_timeout() {\n    16\t        // TODO\n    17\t        return false;\n    18\t    }\n    19\t\n    20\tprivate:\n    21\t    // TODO\n    22\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will implement the `TimeoutMonitor` class using a circular buffer (via `std::vector`) to maintain the sliding window of timestamps. To efficiently calculate the average inter-arrival time, I will track the sum of intervals between consecutive events in the window. Since the window consists of $N$ timestamps, there are $N-1$ intervals. The average is simply `(last_timestamp - first_timestamp) / (count - 1)`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class TimeoutMonitor {\\npublic:\\n    void configure(size_t window_size, double threshold_ms) {\\n        // TODO\\n    }\\n\\n    bool push(double timestamp_ms) {\\n        // TODO\\n        return false;\\n    }\\n\\n    bool check_timeout() {\\n        // TODO\\n        return false;\\n    }\\n\\nprivate:\\n    // TODO\\n};\", \"new\": \"class TimeoutMonitor {\\npublic:\\n    void configure(size_t window_size, double threshold_ms) {\\n        m_window_size = window_size;\\n        m_threshold = threshold_ms;\\n        m_buffer.assign(window_size, 0.0);\\n        m_count = 0;\\n        m_head = 0;\\n    }\\n\\n    bool push(double timestamp_ms) {\\n        if (m_window_size == 0) return false;\\n        m_buffer[m_head] = timestamp_ms;\\n        m_head = (m_head + 1) % m_window_size;\\n        if (m_count < m_window_size) {\\n            m_count++;\\n        }\\n        return true;\\n    }\\n\\n    bool check_timeout() {\\n        if (m_count < 2) return false;\\n        double first = (m_count < m_window_size) ? m_buffer[0] : m_buffer[m_head];\\n        double last = m_buffer[(m_head + m_window_size - 1) % m_window_size];\\n        double avg = (last - first) / (m_count - 1);\\n        return avg > m_threshold;\\n    }\\n\\nprivate:\\n    size_t m_window_size = 0;\\n    double m_threshold = 0.0;\\n    std::vector<double> m_buffer;\\n    size_t m_count = 0;\\n    size_t m_head = 0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\ncall:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

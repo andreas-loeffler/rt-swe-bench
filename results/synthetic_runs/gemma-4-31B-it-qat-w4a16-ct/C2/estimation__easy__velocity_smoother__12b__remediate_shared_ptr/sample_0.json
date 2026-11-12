@@ -1,0 +1,91 @@
+{
+ "id": "estimation__easy__velocity_smoother__12b__remediate_shared_ptr",
+ "kernel": "estimation__easy__velocity_smoother__12b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "estimation",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 506,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <memory>\n\nclass VelocitySmoother {\npublic:\n    void configure(double alpha) {\n        m_alpha = alpha;\n        m_initialized = false;\n        m_prev_velocity = 0.0;\n    }\n\n    double process(double raw_velocity) {\n        if (!m_initialized) {\n            m_prev_velocity = raw_velocity;\n            m_initialized = true;\n            return raw_velocity;\n        }\n        \n        double smoothed = m_alpha * raw_velocity + (1.0 - m_alpha) * m_prev_velocity;\n        m_prev_velocity = smoothed;\n        return smoothed;\n    }\n\nprivate:\n    double m_alpha = 0.0;\n    double m_prev_velocity = 0.0;\n    bool m_initialized = false;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 5416,
+  "completion_tokens": 244
+ },
+ "started": 1793816918.7353704,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 815.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "call: {\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-19 of 19)\n     1\t# VelocitySmoother\n     2\t\n     3\tA real-time filter that smooths raw velocity data using a first-order low-pass filter (exponential moving average).\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(double alpha)`\n     8\tInitializes the filter.\n     9\t- `alpha`: The smoothing factor, where $0 < \\alpha \\le 1$. \n    10\t- A larger $\\alpha$ makes the output more responsive to the raw input (less smoothing).\n    11\t- A smaller $\\alpha$ makes the output smoother but with more latency.\n    12\t\n    13\t### `double process(double raw_velocity)`\n    14\tProcesses a single sample of raw velocity data.\n    15\t- **Precondition**: `configure` must be called exactly once before any call to `process`.\n    16\t- **Returns**: The smoothed velocity value.\n    17\t\n    18\t## Real-Time Constraints\n    19\t- The `process` method is a real-time call. It must not allocate heap memory, throw exceptions, use mutexes, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "call: {\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-30 of 30)\n     1\t#pragma once\n     2\t\n     3\t#include <memory>\n     4\t\n     5\tclass VelocitySmoother {\n     6\tpublic:\n     7\t    void configure(double alpha) {\n     8\t        m_alpha = alpha;\n     9\t        m_initialized = false;\n    10\t        m_prev_velocity = 0.0;\n    11\t    }\n    12\t\n    13\t    double process(double raw_velocity) {\n    14\t        if (!m_initialized) {\n    15\t            m_prev_velocity = raw_velocity;\n    16\t            m_initialized = true;\n    17\t            return raw_velocity;\n    18\t        }\n    19\t        \n    20\t        auto config = std::make_shared<double>(m_alpha);\n    21\t        double smoothed = (*config) * raw_velocity + (1.0 - (*config)) * m_prev_velocity;\n    22\t        m_prev_velocity = smoothed;\n    23\t        return smoothed;\n    24\t    }\n    25\t\n    26\tprivate:\n    27\t    double m_alpha = 0.0;\n    28\t    double m_prev_velocity = 0.0;\n    29\t    bool m_initialized = false;\n    30\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `process` method currently uses `std::make_shared<double>(m_alpha)`, which allocates memory on the heap during the real-time path. This violates the real-time constraint. I will remove the `std::shared_ptr` and use `m_alpha` directly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        auto config = std::make_shared<double>(m_alpha);\\n        double smoothed = (*config) * raw_velocity + (1.0 - (*config)) * m_prev_velocity;\", \"new\": \"        double smoothed = m_alpha * raw_velocity + (1.0 - m_alpha) * m_prev_velocity;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call: {\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call: {\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

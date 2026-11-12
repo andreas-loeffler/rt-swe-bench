@@ -1,0 +1,88 @@
+{
+ "id": "control__hard__complementary_filter_bank__31b__remediate_shared_ptr",
+ "kernel": "control__hard__complementary_filter_bank__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 4,
+   "F": 1,
+   "R": 0,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 1,
+     "allocs": 3,
+     "bytes": 120,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 3
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <algorithm>\n#include <memory>\n\n/**\n * Internal state and calculation logic for a single axis.\n */\nstruct FilterState {\n    double dt;\n    double alpha;\n    double state = 0.0;\n\n    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n\n    double update(double gyro, double accel) {\n        double angle_gyro = state + (gyro * dt);\n        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n        return state;\n    }\n};\n\nclass ComplementaryFilterBank {\npublic:\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        for (size_t i = 0; i < num_axes; ++i) {\n            m_filters.push_back(nullptr);\n        }\n    }\n\n    void process(const double* gyro_rates, const double* accels, double* output) {\n        for (size_t i = 0; i < m_num_axes; ++i) {\n            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\n        }\n    }\n\nprivate:\n    double apply_filter(size_t axis_index, double gyro, double accel) {\n        if (!m_filters[axis_index]) {\n            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n        }\n        return m_filters[axis_index]->update(gyro, accel);\n    }\n\n    size_t m_num_axes = 0;\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    std::vector<std::shared_ptr<FilterState>> m_filters;\n};\n"
+  }
+ ],
+ "steps": 4,
+ "usage": {
+  "prompt_tokens": 7177,
+  "completion_tokens": 1711
+ },
+ "started": 1793815649.3909237,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 0,
+ "repair_rounds": 0,
+ "seconds": 431.3,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# ComplementaryFilterBank\n     2\t\n     3\tThe `ComplementaryFilterBank` computes a stable attitude estimate by fusing data from two different sensors (typically an accelerometer/gravimeter for low-frequency stability and a gyroscope for high-frequency responsiveness) across multiple axes.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t num_axes, double sample_rate, double alpha)`\n     8\t- `num_axes`: Number of spatial dimensions (e.g., 3 for XYZ).\n     9\t- `sample_rate`: The sampling frequency in Hz.\n    10\t- `alpha`: The filter coefficient (typically 0.95 to 0.99). Higher values trust the gyroscope more.\n    11\t- **Preconditions**: `num_axes > 0`, `sample_rate > 0`, `0.0 < alpha < 1.0`.\n    12\t- **Note**: This method may allocate memory.\n    13\t\n    14\t### `void process(const double* gyro_rates, const double* accels, double* output)`\n    15\t- `gyro_rates`: Array of size `num_axes` containing angular velocities (rad/s).\n    16\t- `accels`: Array of size `num_axes` containing normalized acceleration vectors (gravity reference).\n    17\t- `output`: Array of size `num_axes` where the estimated attitude (angles) is written.\n    18\t- **Real-time Constraint**: This method must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    19\t\n    20\t## Behavior\n    21\tThe filter maintains an internal state for each axis. For each axis $i$:\n    22\t1. Integrate the gyroscope rate: $\\text{angle}_{gyro} = \\text{angle}_{prev} + (\\text{gyro\\_rate}_i / \\text{sample\\_rate})$.\n    23\t2. Calculate the low-pass estimate from the accelerometer: $\\text{angle}_{accel} = \\text{atan2}(\\text{accel}_i, \\text{accel}_{ref})$ (Note: implementation uses a simplified linear mapping for the benchmark bank).\n    24\t3. Fuse using the complementary formula: $\\text{angle}_{new} = \\alpha \\cdot \\text{angle}_{gyro} + (1 - \\alpha) \\cdot \\text{angle}_{accel}$.\n    25\t\n    26\tThe class handles internal state initialization and maintains the integration across calls."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1, \"end\": 200}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-56 of 56)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cmath>\n     5\t#include <algorithm>\n     6\t#include <memory>\n     7\t\n     8\t/**\n     9\t * Internal state and calculation logic for a single axis.\n    10\t */\n    11\tstruct FilterState {\n    12\t    double dt;\n    13\t    double alpha;\n    14\t    double state = 0.0;\n    15\t\n    16\t    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n    17\t\n    18\t    double update(double gyro, double accel) {\n    19\t        double angle_gyro = state + (gyro * dt);\n    20\t        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n    21\t        return state;\n    22\t    }\n    23\t};\n    24\t\n    25\tclass ComplementaryFilterBank {\n    26\tpublic:\n    27\t    void configure(size_t num_axes, double sample_rate, double alpha) {\n    28\t        m_num_axes = num_axes;\n    29\t        m_dt = 1.0 / sample_rate;\n    30\t        m_alpha = alpha;\n    31\t        \n    32\t        m_filters.clear();\n    33\t        for (size_t i = 0; i < num_axes; ++i) {\n    34\t            m_filters.push_back(nullptr);\n    35\t        }\n    36\t    }\n    37\t\n    38\t    void process(const double* gyro_rates, const double* accels, double* output) {\n    39\t        for (size_t i = 0; i < m_num_axes; ++i) {\n    40\t            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\n    41\t        }\n    42\t    }\n    43\t\n    44\tprivate:\n    45\t    double apply_filter(size_t axis_index, double gyro, double accel) {\n    46\t        if (!m_filters[axis_index]) {\n    47\t            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n    48\t        }\n    49\t        return m_filters[axis_index]->update(gyro, accel);\n    50\t    }\n    51\t\n    52\t    size_t m_num_axes = 0;\n    53\t    double m_dt = 0.0;\n    54\t    double m_alpha = 0.0;\n    55\t    std::vector<std::shared_ptr<FilterState>> m_filters;\n    56\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double apply_filter(size_t axis_index, double gyro, double accel) {\\n\\t\\tif (!m_filters[axis_index]) {\\n\\t\\t\\tm_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\\n\\t\\t}\\n\\t\\treturn m_filters[axis_index]->update(gyro, accel);\\n\\t}\\n\\t\\n\\tsize_t m_num_axes = 0;\\n\\tdouble m_dt = 0.0;\\n\\tdouble m_alpha = 0.0;\\n\\tstd::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    void process(const double* gyro_rates, const double* accels, double* output) {\\n\\t\\tfor (size_t i = 0; i < m_num_axes; ++i) {\\n\\t\\t\\toutput[i] = m_filters[i]->update(gyro_rates[i], accels[i]);\\n\\t\\t}\\n\\t}\\n\\n\\tsize_t m_num_axes = 0;\\n\\tdouble m_dt = 0.0;\\n\\tdouble m_alpha = 0.0;\\n\\tstd::vector<FilterState> m_filters;\"}}\n```\n\nthought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t num_axes, double sample_rate, double alpha) {\\n\\t\\tm_num_axes = num_axes;\\n\\t\\tm_dt = 1.0 / sample_rate;\\n\\t\\tm_alpha = alpha;\\n\\t\\t\\n\\t\\tm_filters.clear();\\n\\t\\tfor (size_t i = 0; i < num_axes; ++i) {\\n\\t\\t\\tm_filters.push_back(nullptr);\\n\\t\\t}\\n\\t}\\n\\t\\n\\tvoid process(const double* gyro_rates, const double* accels, double* output) {\\n\\t\\tfor (size_t i = 0; i < m_num_axes; ++i) {\\n\\t\\t\\toutput[i] = apply_filter(i, gyro_rates[i], accels[i]);\\n\\t\\t}\\n\\t}\\n\\n\\tprivate:\\n\\t    double apply_filter(size_t axis_index, double gyro, double accel) {\\n\\t\\t\\tif (!m_filters[axis_index]) {\\n\\t\\t\\t\\tm_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\\n\\t\\t\\t}\\n\\t\\t\\treturn m_filters[axis_index]->update(gyro, accel);\\n\\t\\t}\\n\\n\\tsize_t m_num_axes = 0;\\n\\tdouble m_dt = 0.0;\\n\\tdouble m_alpha = 0.0;\\n\\tstd::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    void configure(size_t num_axes, double sample_rate, double alpha) {\\n\\t\\tm_num_axes = num_axes;\\n\\t\\tm_dt = 1.0 / sample_rate;\\n\\t\\tm_alpha = alpha;\\n\\t\\t\\n\\t\\tm_filters.clear();\\n\\t\\tm_filters.reserve(num_axes);\\n\\t\\tfor (size_t i = 0; i < num_axes; ++i) {\\n\\t\\t\\tm_filters.emplace_back(m_dt, m_alpha);\\n\\t\\t}\\n\\t}\\n\\t\\n\\tvoid process(const double* gyro_rates, const double* accels, double* output) {\\n\\t\\tfor (size_t i = 0; i < m_num_axes; ++i) {\\n\\t\\t\\toutput[i] = m_filters[i].state + (gyro_rates[i] * m_dt);\\n\\t\\t\\tm_filters[i].state = (m_alpha * (m_filters[i].state + (gyro_rates[i] * m_dt))) + ((1.0 - m_alpha) * accels[i]);\\n\\t\\t\\toutput[i] = m_filters[i].state;\\n\\t\\t}\\n\\t}\\n\\n\\tprivate:\\n\\t    size_t m_num_axes = 0;\\n\\t    double m_dt = 0.0;\\n\\t    double m_alpha = 0.0;\\n\\t    std::vector<FilterState> m_filters;\"}}\n```\n\nthought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void process(const double* gyro_rates, const double* accels, double* output) {\\n\\t\\tfor (size_t i = 0; i < m_num_axes; ++i) {\\n\\t\\t\\toutput[i] = m_filters[i].state + (gyro_rates[i] * m_dt);\\n\\t\\t\\tm_filters[i].state = (m_alpha * (m_filters[i].state + (gyro_rates[i] * m_dt))) + ((1.0 - m_alpha) * accels[i]);\\n\\t\\t\\toutput[i] = m_filters[i].state;\\n\\t\\t}\\n\\t}\\n\\n\\tprivate:\\n\\t    size_t m_num_axes = 0;\\n\\t    double m_dt = 0.0;\\n\\t    double m_alpha = 0.0;\\n\\t    std::vector<FilterState> m_filters;\", \"new\": \"    void process(const double* gyro_rates, const double* accels, double* output) {\\n\\t\\tfor (size_t i = 0; i < m_num_axes; ++i) {\\n\\t\\t\\toutput[i] = m_filters[i].update(gyro_rates[i], accels[i]);\\n\\t\\t}\\n\\t}\\n\\n\\tprivate:\\n\\t    size_t m_num_axes = 0;\\n\\t    double m_dt = 0.0;\\n\\t    double m_alpha = 0.0;\\n\\t    std::vector<FilterState> m_filters;\"}}\n```\n\nthought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

@@ -1,0 +1,99 @@
+{
+ "id": "telemetry__medium__fixed_capacity_event_queue__31b__remediate_copy_by_value",
+ "kernel": "telemetry__medium__fixed_capacity_event_queue__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "telemetry",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1242,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <atomic>\n#include <cstddef>\n\nstruct TelemetryEvent {\n    uint32_t id;\n    double timestamp;\n    float value;\n\n    bool operator==(const TelemetryEvent&) const = default;\n};\n\nclass FixedCapacityEventQueue {\npublic:\n    void configure(size_t capacity) {\n        buffer_.assign(capacity + 1, {0, 0.0, 0.0});\n        capacity_ = capacity;\n        head_.store(0, std::memory_order_relaxed);\n        tail_.store(0, std::memory_order_relaxed);\n    }\n\n    bool push(const TelemetryEvent& event) {\n        size_t current_head = head_.load(std::memory_order_relaxed);\n        size_t next_head = (current_head + 1) % buffer_.size();\n\n        if (next_head == tail_.load(std::memory_order_acquire)) {\n            return false;\n        }\n\n        buffer_[current_head] = event;\n        head_.store(next_head, std::memory_order_release);\n        return true;\n    }\n\n    bool pop(TelemetryEvent& event) {\n        size_t current_tail = tail_.load(std::memory_order_relaxed);\n\n        if (current_tail == head_.load(std::memory_order_acquire)) {\n            return false;\n        }\n\n        event = buffer_[current_tail];\n        tail_.store((current_tail + 1) % buffer_.size(), std::memory_order_release);\n        return true;\n    }\n\nprivate:\n\n\n    std::vector<TelemetryEvent> buffer_;\n    size_t capacity_ = 0;\n    std::atomic<size_t> head_{0};\n    std::atomic<size_t> tail_{0};\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 9144,
+  "completion_tokens": 428
+ },
+ "started": 1793815665.7456734,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 750.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation to identify the heap allocations in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-28 of 28)\n     1\t# FixedCapacityEventQueue\n     2\t\n     3\tThe `FixedCapacityEventQueue` is a lock-free, single-producer single-consumer (SPSC) ring buffer designed for domain telemetry. It allows a real-time thread to enqueue telemetry events and a non-real-time thread to dequeue them for logging or transmission without causing heap allocations or blocking the real-time path.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\t- **Purpose**: Initializes the internal buffer to hold up to `capacity` events.\n     9\t- **Preconditions**: Must be called before any real-time method.\n    10\t- **Behavior**: Allocates memory for the ring buffer.\n    11\t\n    12\t### `bool push(const TelemetryEvent& event)`\n    13\t- **Purpose**: Adds a telemetry event to the queue.\n    14\t- **Preconditions**: `configure` must have been called.\n    15\t- **Returns**: `true` if the event was successfully enqueued; `false` if the queue is full (saturation).\n    16\t- **Real-time constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    17\t\n    18\t### `bool pop(TelemetryEvent& event)`\n    19\t- **Purpose**: Removes and returns the oldest telemetry event from the queue.\n    20\t- **Preconditions**: `configure` must have been called.\n    21\t- **Returns**: `true` if an event was successfully dequeued; `false` if the queue is empty.\n    22\t- **Real-time constraint**: Must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    23\t\n    24\t## Behavior\n    25\t- The queue operates as a First-In-First-Out (FIFO) buffer.\n    26\t- When the queue is full, `push` returns `false` and the event is discarded.\n    27\t- When the queue is empty, `pop` returns `false`.\n    28\t- Wrap-around is handled internally via the ring buffer logic."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the implementation in `kernel.hpp` to find where heap allocations are occurring in `push` and `pop`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-58 of 58)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <atomic>\n     5\t#include <cstddef>\n     6\t\n     7\tstruct TelemetryEvent {\n     8\t    uint32_t id;\n     9\t    double timestamp;\n    10\t    float value;\n    11\t\n    12\t    bool operator==(const TelemetryEvent&) const = default;\n    13\t};\n    14\t\n    15\tclass FixedCapacityEventQueue {\n    16\tpublic:\n    17\t    void configure(size_t capacity) {\n    18\t        buffer_.assign(capacity + 1, {0, 0.0, 0.0});\n    19\t        capacity_ = capacity;\n    20\t        head_.store(0, std::memory_order_relaxed);\n    21\t        tail_.store(0, std::memory_order_relaxed);\n    22\t    }\n    23\t\n    24\t    bool push(const TelemetryEvent& event) {\n    25\t        size_t current_head = head_.load(std::memory_order_relaxed);\n    26\t        size_t next_head = (current_head + 1) % buffer_.size();\n    27\t\n    28\t        if (next_head == tail_.load(std::memory_order_acquire)) {\n    29\t            return false;\n    30\t        }\n    31\t\n    32\t        store_event({event});\n    33\t        head_.store(next_head, std::memory_order_release);\n    34\t        return true;\n    35\t    }\n    36\t\n    37\t    bool pop(TelemetryEvent& event) {\n    38\t        size_t current_tail = tail_.load(std::memory_order_relaxed);\n    39\t\n    40\t        if (current_tail == head_.load(std::memory_order_acquire)) {\n    41\t            return false;\n    42\t        }\n    43\t\n    44\t        event = buffer_[current_tail];\n    45\t        tail_.store((current_tail + 1) % buffer_.size(), std::memory_order_release);\n    46\t        return true;\n    47\t    }\n    48\t\n    49\tprivate:\n    50\t    void store_event(std::vector<TelemetryEvent> events) {\n    51\t        buffer_[head_.load(std::memory_order_relaxed)] = events[0];\n    52\t    }\n    53\t\n    54\t    std::vector<TelemetryEvent> buffer_;\n    55\t    size_t capacity_ = 0;\n    56\t    std::atomic<size_t> head_{0};\n    57\t    std::atomic<size_t> tail_{0};\n    58\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `push` method calls `store_event`, which takes a `std::vector<TelemetryEvent>` by value. Passing `{event}` (an initializer list) to a `std::vector` constructor triggers a heap allocation. I will replace this with a direct assignment to the buffer to eliminate the allocation.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        store_event({event});\", \"new\": \"        buffer_[current_head] = event;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will remove the unused `store_event` method to clean up the code.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void store_event(std::vector<TelemetryEvent> events) {\\n        buffer_[head_.load(std::memory_order_relaxed)] = events[0];\\n    }\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now check for any other remaining occurrences of the `store_event` method's empty line or surrounding whitespace to ensure the code is clean, but first I'll run the test to make sure the current changes are correct.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the heap allocation in the `push` method by eliminating the call to `store_event` and the temporary `std::vector` creation, replacing it with direct assignment to the buffer.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

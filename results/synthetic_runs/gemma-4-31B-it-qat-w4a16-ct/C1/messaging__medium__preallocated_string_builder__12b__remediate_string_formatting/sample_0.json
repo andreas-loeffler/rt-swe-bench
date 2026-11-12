@@ -1,0 +1,115 @@
+{
+ "id": "messaging__medium__preallocated_string_builder__12b__remediate_string_formatting",
+ "kernel": "messaging__medium__preallocated_string_builder__12b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <string_view>\n#include <vector>\n#include <cstring>\n#include <string>\n\nclass FixedStringBuilder {\npublic:\n    void configure(size_t buffer_capacity) {\n        buffer_capacity_ = buffer_capacity;\n        buffer_ = new char[buffer_capacity_ + 1];\n        current_pos_ = 0;\n        buffer_[0] = '\\0';\n    }\n\n    ~FixedStringBuilder() {\n        delete[] buffer_;\n    }\n\n    size_t append(std::string_view text) {\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n        if (remaining == 0) return 0;\n\n        size_t to_copy = (text.size() < remaining) ? text.size() : remaining;\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\n        current_pos_ += to_copy;\n        buffer_[current_pos_] = '\\0';\n\n        return to_copy;\n    }\n\n    std::string_view view() {\n        return std::string_view(buffer_, current_pos_);\n    }\n\n    void clear() {\n        current_pos_ = 0;\n        buffer_[0] = '\\0';\n    }\n\nprivate:\n    char* buffer_;\n    size_t buffer_capacity_;\n    size_t current_pos_;\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 22379,
+  "completion_tokens": 3813
+ },
+ "started": 1793816417.34039,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1480.3,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the specification and the current implementation to identify where heap allocations occur in the real-time methods.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-29 of 29)\n     1\t# FixedStringBuilder\n     2\t\n     3\tThe `FixedStringBuilder` class constructs formatted status strings into a pre-allocated, fixed-size internal buffer. It is designed for real-time systems where dynamic memory allocation during the control loop is prohibited.\n     4\t\n     5\t### Public API\n     6\t\n     7\t#### `void configure(size_t buffer_capacity)`\n     8\tInitializes the internal buffer to the specified capacity. \n     9\t- **Preconditions**: `buffer_capacity > 0`.\n    10\t- **Behavior**: Allocates the internal buffer. This is the only method allowed to allocate memory.\n    11\t\n    12\t#### `size_t append(std::string_view text)`\n    13\tAppends a string to the internal buffer.\n    14\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    15\t- **Behavior**: \n    16\t    - If the text fits in the remaining space, it is copied into the buffer.\n    17\t    - If the text exceeds the remaining space (including the null terminator), the function returns the amount of text that *could* be appended, but only the portion that fits is written.\n    18\t    - If the buffer is already full (no room for even the first char), it returns 0.\n    19\t    - The buffer is always null-terminated.\n    20\t\n    21\t#### `std::string_view view()`\n    22\tReturns a view of the current content of the buffer.\n    23\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    24\t- **Behavior**: Returns a `std::string_view` starting from the beginning of the buffer up to (but not including) the null terminator.\n    25\t\n    26\t#### `void clear()`\n    27\tResets the buffer state.\n    28\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    29\t- **Behavior**: Resets the internal write pointer to 0. The old content remains in the buffer but is ignored by subsequent `append` calls."
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will examine the implementation of `kernel.hpp` to find the heap allocations in `append`, `view`, or `clear`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-49 of 49)\n     1\t#pragma once\n     2\t#include <string_view>\n     3\t#include <vector>\n     4\t#include <cstring>\n     5\t#include <string>\n     6\t\n     7\tclass FixedStringBuilder {\n     8\tpublic:\n     9\t    void configure(size_t buffer_capacity) {\n    10\t        buffer_capacity_ = buffer_capacity;\n    11\t        buffer_ = new char[buffer_capacity_ + 1];\n    12\t        current_pos_ = 0;\n    13\t        buffer_[0] = '\\0';\n    14\t    }\n    15\t\n    16\t    ~FixedStringBuilder() {\n    17\t        delete[] buffer_;\n    18\t    }\n    19\t\n    20\t    size_t append(std::string_view text) {\n    21\t        std::string temp_buffer;\n    22\t        temp_buffer.reserve(buffer_capacity_ - current_pos_ - 1);\n    23\t        temp_buffer.append(text);\n    24\t\n    25\t        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n    26\t        if (remaining == 0) return 0;\n    27\t        \n    28\t        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\n    29\t        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\n    30\t        current_pos_ += to_copy;\n    31\t        buffer_[current_pos_] = '\\0';\n    32\t        \n    33\t        return to_copy;\n    34\t    }\n    35\t\n    36\t    std::string_view view() {\n    37\t        return std::string_view(buffer_, current_pos_);\n    38\t    }\n    39\t\n    40\t    void clear() {\n    41\t        current_pos_ = 0;\n    42\t        buffer_[0] = '\\0';\n    43\t    }\n    44\t\n    45\tprivate:\n    46\t    char* buffer_;\n    47\t    size_t buffer_capacity_;\n    48\t    size_t current_pos_;\n    49\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `append` method currently uses a `std::string temp_buffer`, which allocates memory on the heap. I need to replace this logic with a direct copy from the `std::string_view` to the internal buffer.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t append(std::string_view text) {\\n        std::string temp_buffer;\\n        temp_buffer.reserve(buffer_capacity_ - current_pos_ - 1);\\n        temp_buffer.append(text);\\n\\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\\n        if (remaining == 0) return 0;\\n        \\n        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\\n        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\", \"new\": \"    size_t append(std::string_view text) {\\n        size_t remaining = buffer_capacity_ - current_pos_;\\n        if (remaining == 0) return 0;\\n        \\n        // Reserve 1 byte for the null terminator\\n        size_t available = remaining - 1;\\n        if (available == 0) return 0;\\n\\n        size_t to_copy = (text.size() < available) ? text.size() : available;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "Wait, looking at my previous edit, I might have introduced a bug when `remaining` is 1.\nIf `buffer_capacity_` is 10 and `current_pos_` is 9, then `remaining` is 1. `available` becomes 0. The function returns 0. This is correct because the null terminator is at index 10 (allocated as `buffer_capacity_ + 1`).\nWait, if `current_pos_` is 9, `buffer_[9]` is the current null terminator. If `buffer_capacity_` is 10, we can have characters at indices 0-9, and index 10 must be `\\0`.\nSo if `current_pos_` is 9, we can still add one character at index 9, and then put `\\0` at index 10.\nCurrent code:\n`remaining = 10 - 9 = 1`.\n`available = 1 - 1 = 0`.\nReturns 0. This is wrong. We should be able to add one more character.\n\nLet's re-evaluate the capacity.\n`buffer_ = new char[buffer_capacity_ + 1];`\nIndices are `0` to `buffer_capacity_`.\nThe null terminator is at `buffer_[current_pos_]`.\nMax allowed `current_pos_` is `buffer_capacity_`.\nIf `current_pos_ == buffer_capacity_`, the buffer is full.\nSpace available for new characters: `buffer_capacity_ - current_pos_`.\n\nLet's fix the logic.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t append(std::string_view text) {\\n        size_t remaining = buffer_capacity_ - current_pos_;\\n        if (remaining == 0) return 0;\\n        \\n        // Reserve 1 byte for the null terminator\\n        size_t available = remaining - 1;\\n        if (available == 0) return 0;\\n\\n        size_t to_copy = (text.size() < available) ? text.size() : available;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\", \"new\": \"    size_t append(std::string_view text) {\\n        size_t available = buffer_capacity_ - current_pos_;\\n        if (available == 0) return 0;\\n\\n        size_t to_copy = (text.size() < available) ? text.size() : available;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests to verify that the implementation is correct and allocation-free.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. A functional check failed: Overflow count"
+  },
+  {
+   "role": "assistant",
+   "content": "I need to investigate the failure. The \"Overflow count\" failure suggests that my calculation of how many characters can be appended when the text exceeds the remaining space is incorrect.\n\nLet's re-read the spec:\n\"If the text exceeds the remaining space (including the null terminator), the function returns the amount of text that *could* be appended, but only the portion that fits is written.\"\n\nExample: `buffer_capacity_ = 10`. Buffer size is 11.\nInitial: `current_pos_ = 0`, `buffer_[0] = '\\0'`.\nAppend \"Hello\" (5 chars):\n`available = 10 - 0 = 10`. `to_copy = min(5, 10) = 5`.\n`buffer_[0..4] = \"Hello\"`, `buffer_[5] = '\\0'`, `current_pos_ = 5`.\nAppend \" World!\" (7 chars):\n`available = 10 - 5 = 5`. `to_copy = min(7, 5) = 5`.\n`buffer_[5..9] = \" Worl\"`, `buffer_[10] = '\\0'`, `current_pos_ = 10`.\nReturns 5.\nWait, \" World!\" has 7 chars. Only 5 fit. The function should return the amount of text that *could* be appended. In this case, it is indeed 5.\n\nWait, the spec says: \"If the text exceeds the remaining space (including the null terminator), the function returns the amount of text that *could* be appended\".\nDoes \"the amount of text that could be appended\" refer to the original `text.size()` or the part that actually fit?\n\"the function returns the amount of text that *could* be appended, but only the portion that fits is written.\"\nUsually, this means it returns `min(text.size(), available)`.\n\nLet's look at the previous implementation (which passed functional tests):\n```cpp\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n        if (remaining == 0) return 0;\n        \n        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\n        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\n        current_pos_ += to_copy;\n        buffer_[current_pos_] = '\\0';\n        \n        return to_copy;\n```\nWait! The original code had `remaining = buffer_capacity_ - current_pos_ - 1`.\nIf `buffer_capacity_ = 10` and `current_pos_ = 0`, `remaining = 9`.\nIt only allowed 9 characters! But the buffer size was 11.\nSo the original code was actually not using the full capacity.\nHowever, the original code passed the tests. This means the tests expect a specific behavior.\n\nLet's look at the original code again.\n`std::string temp_buffer;`\n`temp_buffer.reserve(buffer_capacity_ - current_pos_ - 1);`\n`temp_buffer.append(text);`\n`size_t remaining = buffer_capacity_ - current_pos_ - 1;`\n`size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;`\n\nIf `buffer_capacity_ = 10`, `current_pos_ = 0`, `remaining = 9`.\nIf `text = \"1234567890\"` (10 chars), `temp_buffer.size()` is 10.\n`to_copy = min(10, 9) = 9`.\nIt returns 9.\n\nSo the original code treats `buffer_capacity_` as the total size including the null terminator?\nNo, `buffer_ = new char[buffer_capacity_ + 1];`.\nSo it has `buffer_capacity_ + 1` bytes.\nIf `current_pos_ = 0`, we have indices `0` to `buffer_capacity_`.\nThe original code used `remaining = buffer_capacity_ - current_pos_ - 1`.\nFor `buffer_capacity_ = 10, current_pos_ = 0`, `remaining = 9`.\nIt only wrote 9 chars and put `\\0` at `buffer_[9]`.\nIndex 10 was left unused.\n\nWait, if the original code passed, I should replicate its behavior exactly, even if it seems to under-utilize the buffer.\nBut wait, if `current_pos_` becomes 9, then `remaining = 10 - 9 - 1 = 0`. It returns 0.\nSo the original code only allowed `current_pos_` to reach 9.\n\nActually, let's look at the original code again.\n`buffer_[current_pos_] = '\\0';` (after `current_pos_ += to_copy`)\nIf `current_pos_` was 0 and `to_copy` was 9, `current_pos_` becomes 9, and `buffer_[9] = '\\0'`.\nThen the next call: `remaining = 10 - 9 - 1 = 0`. Returns 0.\nSo it effectively used `buffer_capacity_` as the maximum size of the string INCLUDING the null terminator.\n\nLet's try to implement the logic exactly as it was in the original code, but without `std::string`.\n\nOriginal logic:\n1. `remaining = buffer_capacity_ - current_pos_ - 1`\n2. If `remaining == 0`, return 0.\n3. `to_copy = min(text.size(), remaining)`\n4. `memcpy(buffer_ + current_pos_, text.data(), to_copy)`\n5. `current_pos_ += to_copy`\n6. `buffer_[current_pos_] = '\\0'`\n7. return `to_copy`\n\nWait, if `current_pos_` is 0 and `buffer_capacity_` is 1, `remaining` is 0. Returns 0.\nBut `buffer_` has size 2. We could fit one char.\nThe original code was indeed restrictive.\n\nLet's try this.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t append(std::string_view text) {\\n        size_t available = buffer_capacity_ - current_pos_;\\n        if (available == 0) return 0;\\n\\n        size_t to_copy = (text.size() < available) ? text.size() : available;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\", \"new\": \"    size_t append(std::string_view text) {\\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\\n        if (remaining == 0 && buffer_capacity_ > 0 && current_pos_ == 0) {\\n            // Special case for initial state if capacity is 1\\n            // Actually let's just follow the original logic exactly.\\n        }\\n        \\n        // To match original exactly:\\n        size_t rem = buffer_capacity_ - current_pos_ - 1;\\n        if (rem == 0 && (current_pos_ > 0 || buffer_capacity_ < 2)) {\\n             // This is getting confusing. Let's just copy the original's lines.\\n        }\\n        return 0;\\n    }\"}}\n```\n\nWait, I can just look at the original `append` and remove the `std::string` part.\n\nOriginal:\n```cpp\n    size_t append(std::string_view text) {\n        std::string temp_buffer;\n        temp_buffer.reserve(buffer_capacity_ - current_pos_ - 1);\n        temp_buffer.append(text);\n\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n        if (remaining == 0) return 0;\n        \n        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\n        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\n        current_pos_ += to_copy;\n        buffer_[current_pos_] = '\\0';\n        \n        return to_copy;\n    }\n```\n\nThe `temp_buffer` was only used to get `temp_buffer.size()` (which is `text.size()`) and `temp_buffer.data()`.\n\nSimplified original:\n```cpp\n    size_t append(std::string_view text) {\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n        if (remaining == 0) return 0;\n        \n        size_t to_copy = (text.size() < remaining) ? text.size() : remaining;\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\n        current_pos_ += to_copy;\n        buffer_[current_pos_] = '\\0';\n        \n        return to_copy;\n    }\n```\n\nLet's try this exactly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t append(std::string_view text) {\\n        size_t available = buffer_capacity_ - current_pos_;\\n        if (available == 0) return 0;\\n\\n        size_t to_copy = (text.size() < available) ? text.size() : available;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\", \"new\": \"    size_t append(std::string_view text) {\\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\\n        if (remaining == 0) return 0;\\n\\n        size_t to_copy = (text.size() < remaining) ? text.size() : remaining;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n\\n        return to_copy;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will run the tests again to verify if replicating the original logic fixes the functional check.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have replaced the heap-allocating `std::string` in the `append` method with a direct memory copy from the `std::string_view`, maintaining the exact behavior of the original implementation to ensure functional correctness while adhering to the real-time constraints.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

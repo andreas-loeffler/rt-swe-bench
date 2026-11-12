@@ -1,0 +1,111 @@
+{
+ "id": "motion__medium__quintic_spline_generator__31b",
+ "idea": {
+  "domain": "motion",
+  "level": "medium",
+  "name": "quintic_spline_generator",
+  "class": "QuinticSplineGenerator",
+  "summary": "Computes position, velocity, and acceleration for a smooth point-to-point move with zero start/end accel.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 24,
+   "killed": 22,
+   "kill_rate": 0.917,
+   "survivors": [
+    "line 26: 0.0 -> 1.0",
+    "line 22: <= -> <"
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 498,
+     "allocs": 1992,
+     "bytes": 59760,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1992
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 700,
+     "allocs": 1400,
+     "bytes": 380800,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1400
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": false
+}

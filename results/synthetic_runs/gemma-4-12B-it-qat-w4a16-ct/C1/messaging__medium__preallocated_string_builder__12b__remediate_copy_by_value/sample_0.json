@@ -1,0 +1,91 @@
+{
+ "id": "messaging__medium__preallocated_string_builder__12b__remediate_copy_by_value",
+ "kernel": "messaging__medium__preallocated_string_builder__12b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 510,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <string_view>\n#include <vector>\n#include <cstring>\n#include <string>\n\nclass FixedStringBuilder {\npublic:\n    void configure(size_t buffer_capacity) {\n        buffer_capacity_ = buffer_capacity;\n        buffer_ = new char[buffer_capacity_ + 1];\n        current_pos_ = 0;\n        buffer_[0] = '\\0';\n    }\n\n    ~FixedStringBuilder() {\n        delete[] buffer_;\n    }\n\n    size_t append(std::string_view text) {\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n        if (remaining == 0) return 0;\n        \n        size_t to_copy = (text.size() < remaining) ? text.size() : remaining;\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\n        current_pos_ += to_copy;\n        buffer_[current_pos_] = '\\0';\n        \n        return to_copy;\n    }\n\n    std::string_view view() {\n        return std::string_view(buffer_, current_pos_);\n    }\n\n    void clear() {\n        current_pos_ = 0;\n        buffer_[0] = '\\0';\n    }\n\nprivate:\n    char* buffer_;\n    size_t buffer_capacity_;\n    size_t current_pos_;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7774,
+  "completion_tokens": 528
+ },
+ "started": 1793819318.521329,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 848.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-29 of 29)\n     1\t# FixedStringBuilder\n     2\t\n     3\tThe `FixedStringBuilder` class constructs formatted status strings into a pre-allocated, fixed-size internal buffer. It is designed for real-time systems where dynamic memory allocation during the control loop is prohibited.\n     4\t\n     5\t### Public API\n     6\t\n     7\t#### `void configure(size_t buffer_capacity)`\n     8\tInitializes the internal buffer to the specified capacity. \n     9\t- **Preconditions**: `buffer_capacity > 0`.\n    10\t- **Behavior**: Allocates the internal buffer. This is the only method allowed to allocate memory.\n    11\t\n    12\t#### `size_t append(std::string_view text)`\n    13\tAppends a string to the internal buffer.\n    14\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    15\t- **Behavior**: \n    16\t    - If the text fits in the remaining space, it is copied into the buffer.\n    17\t    - If the text exceeds the remaining space (including the null terminator), the function returns the amount of text that *could* be appended, but only the portion that fits is written.\n    18\t    - If the buffer is already full (no room for even the first char), it returns 0.\n    19\t    - The buffer is always null-terminated.\n    20\t\n    21\t#### `std::string_view view()`\n    22\tReturns a view of the current content of the buffer.\n    23\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    24\t- **Behavior**: Returns a `std::string_view` starting from the beginning of the buffer up to (but not including) the null terminator.\n    25\t\n    26\t#### `void clear()`\n    27\tResets the buffer state.\n    28\t- **Real-time constraints**: Must not allocate, throw, lock, or perform I/O.\n    29\t- **Behavior**: Resets the internal write pointer to 0. The old content remains in the buffer but is ignored by subsequent `append` calls."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-50 of 50)\n     1\t#pragma once\n     2\t#include <string_view>\n     3\t#include <vector>\n     4\t#include <cstring>\n     5\t#include <string>\n     6\t\n     7\tclass FixedStringBuilder {\n     8\tpublic:\n     9\t    void configure(size_t buffer_capacity) {\n    10\t        buffer_capacity_ = buffer_capacity;\n    11\t        buffer_ = new char[buffer_capacity_ + 1];\n    12\t        current_pos_ = 0;\n    13\t        buffer_[0] = '\\0';\n    14\t    }\n    15\t\n    16\t    ~FixedStringBuilder() {\n    17\t        delete[] buffer_;\n    18\t    }\n    19\t\n    20\t    size_t append(std::string_view text) {\n    21\t        // To handle complex formatting internally, we use a temporary vector \n    22\t        // to build the segment before copying it to the fixed buffer.\n    23\t        std::vector<char> temp_buffer(text.size());\n    24\t        std::memcpy(temp_buffer.data(), text.data(), text.size());\n    25\t        \n    26\t        size_t remaining = buffer_capacity_ - current_pos_ - 1;\n    27\t        if (remaining == 0) return 0;\n    28\t        \n    29\t        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\n    30\t        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\n    31\t        current_pos_ += to_copy;\n    32\t        buffer_[current_pos_] = '\\0';\n    33\t        \n    34\t        return to_copy;\n    35\t    }\n    36\t\n    37\t    std::string_view view() {\n    38\t        return std::string_view(buffer_, current_pos_);\n    39\t    }\n    40\t\n    41\t    void clear() {\n    42\t        current_pos_ = 0;\n    43\t        buffer_[0] = '\\0';\n    44\t    }\n    45\t\n    46\tprivate:\n    47\t    char* buffer_;\n    48\t    size_t buffer_capacity_;\n    49\t    size_t current_pos_;\n    50\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `append` method in `kernel.hpp` currently allocates a `std::vector<char>` on the heap, which violates the real-time constraint. I will remove the temporary vector and copy directly from the `std::string_view` to the pre-allocated buffer.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t append(std::string_view text) {\\n        // To handle complex formatting internally, we use a temporary vector \\n        // to build the segment before copying it to the fixed buffer.\\n        std::vector<char> temp_buffer(text.size());\\n        std::memcpy(temp_buffer.data(), text.data(), text.size());\\n        \\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\\n        if (remaining == 0) return 0;\\n        \\n        size_t to_copy = (temp_buffer.size() < remaining) ? temp_buffer.size() : remaining;\\n        std::memcpy(buffer_ + current_pos_, temp_buffer.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\", \"new\": \"    size_t append(std::string_view text) {\\n        size_t remaining = buffer_capacity_ - current_pos_ - 1;\\n        if (remaining == 0) return 0;\\n        \\n        size_t to_copy = (text.size() < remaining) ? text.size() : remaining;\\n        std::memcpy(buffer_ + current_pos_, text.data(), to_copy);\\n        current_pos_ += to_copy;\\n        buffer_[current_pos_] = '\\\\0';\\n        \\n        return to_copy;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

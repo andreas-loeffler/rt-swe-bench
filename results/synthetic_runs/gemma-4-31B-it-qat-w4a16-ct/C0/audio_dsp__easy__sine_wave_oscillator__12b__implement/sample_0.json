@@ -1,0 +1,91 @@
+{
+ "id": "audio_dsp__easy__sine_wave_oscillator__12b__implement",
+ "kernel": "audio_dsp__easy__sine_wave_oscillator__12b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "audio_dsp",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <cmath>\n#include <numbers>\n\nclass SineWaveOscillator {\npublic:\n    void configure(double sampleRate, double frequency) {\n        phase_increment_ = (2.0 * std::numbers::pi * frequency) / sampleRate;\n        phase_ = 0.0;\n    }\n\n    double process() {\n        double value = std::sin(phase_);\n        phase_ += phase_increment_;\n        while (phase_ >= 2.0 * std::numbers::pi) {\n            phase_ -= 2.0 * std::numbers::pi;\n        }\n        return value;\n    }\n\nprivate:\n    double phase_ = 0.0;\n    double phase_increment_ = 0.0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7553,
+  "completion_tokens": 2039
+ },
+ "started": 1793820023.2708523,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 835.7,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\nthought\nthought\nthought\nthought\n<thought\nI will start by reading the specification and the current state of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-18 of 18)\n     1\t# SineWaveOscillator\n     2\t\n     3\tGenerates a sine wave based on a phase accumulator.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(double sampleRate, double frequency)`\n     8\tConfigures the oscillator with a sample rate in Hz and a target frequency in Hz. This method may allocate memory or perform heavy calculations.\n     9\t\n    10\t### `double process()`\n    11\tAdvances the oscillator by one sample and returns the current amplitude at that point.\n    12\t\n    13\t## Preconditions\n    14\t- `sampleRate` must be greater than 0.\n    15\t- `frequency` must be non-negative.\n    16\t\n    17\t## Real-Time Constraints\n    18\tThe `process()` method must run on a hard real-time path. It must not allocate heap memory, throw exceptions, use mutexes, or perform I/O operations."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-13 of 13)\n     1\t#pragma once\n     2\t\n     3\tclass SineWaveOscillator {\n     4\tpublic:\n     5\t    void configure(double sampleRate, double frequency) {\n     6\t        // TODO\n     7\t    }\n     8\t\n     9\t    double process() {\n    10\t        // TODO\n    11\t        return 0.0;\n    12\t    }\n    13\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "<thought\nI need to implement the sine wave oscillator.\n1. `configure` will calculate the phase increment per sample: $\\Delta\\phi = \\frac{2\\pi \\cdot f}{f_s}$.\n2. `process` will use this increment to advance a phase accumulator and compute $\\sin(\\phi)$.\n3. I need to include `<cmath>` for `std::sin` and `M_PI` (or define it if not available, though `std::numbers::pi` is C++20).\n\nLet's refine the implementation.\nSince the specification mentions C++20, I can use `std::numbers::pi`.\n\nImplementation details:\n- Member variables: `double phase_` and `double phase_increment_`.\n- `configure`: Calculate `phase_increment_ = 2.0 * std::numbers::pi * frequency / sampleRate`.\n- `process`: return `std::sin(phase_)` and then `phase_ += phase_increment_`. Actually, the spec says \"Advances the oscillator by one sample and returns the current amplitude at that point.\" Usually, this means the value at the current phase, then increment. Or increment then value. A standard oscillator usually returns the value for the current phase then increments.\n\nWait, let's look at the wording: \"Advances the oscillator by one sample and returns the current amplitude at that point.\"\nThis could be interpreted as:\n1. $\\text{val} = \\sin(\\phi)$; $\\phi += \\Delta\\phi$; return $\\text{val}$;\n2. $\\phi += \\Delta\\phi$; $\\text{val} = \\sin(\\phi)$; return $\\text{val}$;\n\nUsually, the initial phase is $0$, so the first sample is $\\sin(0) = 0$.\n\nLet's implement it with `std::numbers::pi` from `<numbers>`.\n\n```cpp\n#include <cmath>\n#include <numbers>\n\nclass SineWaveOscillator {\n    double phase_ = 0.0;\n    double phase_increment_ = 0.0;\npublic:\n    void configure(double sampleRate, double frequency) {\n        phase_increment_ = (2.0 * std::numbers::pi * frequency) / sampleRate;\n    }\n\n    double process() {\n        double value = std::sin(phase_);\n        phase_ += phase_increment_;\n        // Optional: wrap phase to [0, 2pi) to avoid precision loss over long periods.\n        // however, sin() handles large numbers, but precision drops.\n        // Given the real-time constraint, we should keep it simple.\n        // Standard practice for a simple oscillator:\n        if (phase_ >= 2.0 * std::numbers::pi) {\n            phase_ -= 2.0 * std::numbers::pi;\n        }\n        return value;\n    }\n};\n```\nWait, if `frequency` is 0, `phase_increment_` is 0, `process()` returns $\\sin(0) = 0$ always. Correct.\nIf `sampleRate` is very large, `phase_increment_` is small. Correct.\n\nActually, `std::numbers::pi` is in `<numbers>`.\n\nLet's check if I should wrap the phase. For long-running oscillators, `phase_` will grow and precision of `sin()` will degrade. Wrapping is better.\n\nOne detail: \"The `process()` method must run on a hard real-time path. It must not allocate heap memory...\". `std::sin` and addition are fine.\n\nLet's implement.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#pragma once\\n\\nclass SineWaveOscillator {\\npublic:\\n    void configure(double sampleRate, double frequency) {\\n        // TODO\\n    }\\n\\n    double process() {\\n        // TODO\\n        return 0.0;\\n    }\\n};\", \"new\": \"#pragma once\\n\\n#include <cmath>\\n#include <numbers>\\n\\nclass SineWaveOscillator {\\npublic:\\n    void configure(double sampleRate, double frequency) {\\n        phase_increment_ = (2.0 * std::numbers::pi * frequency) / sampleRate;\\n        phase_ = 0.0;\\n    }\\n\\n    double process() {\\n        double value = std::sin(phase_);\\n        phase_ += phase_increment_;\\n        if (phase_ >= 2.0 * std::numbers::pi) {\\n            phase_ -= 2.0 * std::numbers::pi;\\n        }\\n        return value;\\n    }\\n\\nprivate:\\n    double phase_ = 0.0;\\n    double phase_increment_ = 0.0;\\n};\"}}\n```\n\nWait, if `frequency` is very large, `phase_increment_` could be $> 2\\pi$. The `if` should be a `while` or `fmod`. But for most audio cases `f < sampleRate/2`, so `phase_increment_ < pi`. A simple `if` is usually sufficient if called once per sample. However, `while` is safer or using `fmod` (though `fmod` might be slower). Let's use `if` and assume $f < f_s$ (which is typical). Actually, a `while` doesn't hurt real-time if the number of iterations is bounded and small. Or better yet, just don't wrap it until it hits a certain threshold, or just use `fmod` in `configure` and keep the increment. No, the increment is added every time.\n\nActually, the most robust way in real-time is to just let it grow or use `fmod` occasionally. But `std::sin` handles large values. The precision loss happens when `phase_` is very large.\n\nLet's use a simple `if` and just ensure it works.\n\nActually, the spec doesn't say `frequency < sampleRate / 2`. If `frequency` is $10 \\times \\text{sampleRate}$, the increment is $20\\pi$.\n\nLet's use:\n```cpp\n        phase_ += phase_increment_;\n        if (phase_ >= 2.0 * std::numbers::pi) {\n            phase_ = std::fmod(phase_, 2.0 * std::numbers::pi);\n        }\n```\nWait, `fmod` is in `<cmath>`.\n\nActually, for a high-performance oscillator, people often use a fixed-point phase accumulator or just let the double grow for a while. Let's stick to the simplest correct implementation.\n\nActually, I'll just use:\n```cpp\n    double process() {\n        double value = std::sin(phase_);\n        phase_ += phase_increment_;\n        if (phase_ >= 2.0 * std::numbers::pi) {\n            phase_ -= 2.0 * std::numbers::pi;\n        }\n        return value;\n    }\n```\nAnd I'll just assume $f < f_s$. If $f \\ge f_s$, the `if` should be a `while`.\n\nLet's use `while` just in case. It's still O(1) practically because $f/f_s$ is usually small.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#pragma once\\n\\nclass SineWaveOscillator {\\npublic:\\n    void configure(double sampleRate, double frequency) {\\n        // TODO\\n    }\\n\\n    double process() {\\n        // TODO\\n        return 0.0;\\n    }\\n};\", \"new\": \"#pragma once\\n\\n#include <cmath>\\n#include <numbers>\\n\\nclass SineWaveOscillator {\\npublic:\\n    void configure(double sampleRate, double frequency) {\\n        phase_increment_ = (2.0 * std::numbers::pi * frequency) / sampleRate;\\n        phase_ = 0.0;\\n    }\\n\\n    double process() {\\n        double value = std::sin(phase_);\\n        phase_ += phase_increment_;\\n        while (phase_ >= 2.0 * std::numbers::pi) {\\n            phase_ -= 2.0 * std::numbers::pi;\\n        }\\n        return value;\\n    }\\n\\nprivate:\\n    double phase_ = 0.0;\\n    double phase_increment_ = 0.0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

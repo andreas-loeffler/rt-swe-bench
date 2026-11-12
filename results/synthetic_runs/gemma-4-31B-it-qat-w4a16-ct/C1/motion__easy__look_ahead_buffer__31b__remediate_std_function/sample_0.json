@@ -1,0 +1,91 @@
+{
+ "id": "motion__easy__look_ahead_buffer__31b__remediate_std_function",
+ "kernel": "motion__easy__look_ahead_buffer__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "motion",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1344,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <cstddef>\n#include <functional>\n#include <string>\n\nclass LookAheadBuffer {\npublic:\n    void configure(size_t capacity) {\n        m_buffer.assign(capacity, 0.0);\n        m_capacity = capacity;\n        m_head = 0;\n        m_tail = 0;\n        m_count = 0;\n    }\n\n    bool push(double waypoint) {\n        if (m_count >= m_capacity) {\n            return false;\n        }\n\n        m_buffer[m_tail] = waypoint;\n        m_tail = (m_tail + 1) % m_capacity;\n        m_count++;\n\n        return true;\n    }\n\n    bool pop(double& out_waypoint) {\n        if (m_count == 0) {\n            return false;\n        }\n        out_waypoint = m_buffer[m_head];\n        m_head = (m_head + 1) % m_capacity;\n        m_count--;\n        return true;\n    }\n\nprivate:\n    std::vector<double> m_buffer;\n    size_t m_capacity = 0;\n    size_t m_head = 0;\n    size_t m_tail = 0;\n    size_t m_count = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7472,
+  "completion_tokens": 571
+ },
+ "started": 1793820023.3932223,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 835.7,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine `spec.md` and `kernel.hpp` to identify the heap allocations occurring in the real-time methods and move them to `configure`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-28 of 28)\n     1\t# LookAheadBuffer\n     2\t\n     3\tThe `LookAheadBuffer` provides a fixed-size ring buffer designed for motion control systems to retrieve waypoints (coordinates) in a real-time loop. It ensures that the motion controller has a stable queue of targets to consume, preventing gaps in motion due to jitter in the waypoint provider.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\t- Called once before real-time execution.\n     9\t- Allocates an internal buffer of size `capacity`.\n    10\t- Resets the buffer to an empty state.\n    11\t\n    12\t### `bool push(double waypoint)`\n    13\t- **Real-time method.**\n    14\t- Adds a waypoint to the end of the queue.\n    15\t- Returns `true` if the waypoint was added successfully.\n    16\t- Returns `false` if the buffer is full (overflow).\n    17\t- **Constraint:** Must not allocate, throw, lock, or perform I/O.\n    18\t\n    19\t### `bool pop(double& out_waypoint)`\n    20\t- **Real-time method.**\n    21\t- Retrieves the oldest waypoint from the queue and stores it in `out_waypoint`.\n    22\t- Returns `true` if a waypoint was successfully retrieved.\n    23\t- Returns `false` if the buffer is empty (underflow).\n    24\t- **Constraint:** Must not allocate, throw, lock, or perform I/O.\n    25\t\n    26\t## Behavior\n    27\t- The buffer operates as a First-In-First-Out (FIFO) queue.\n    28\t- Capacity is strict; once `configure` is called, the size cannot be changed without calling `configure` again (which is forbidden on the real-time path)."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine `kernel.hpp` to find where heap allocations are happening in `push` and `pop`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-49 of 49)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <cstddef>\n     4\t#include <functional>\n     5\t#include <string>\n     6\t\n     7\tclass LookAheadBuffer {\n     8\tpublic:\n     9\t    void configure(size_t capacity) {\n    10\t        m_buffer.assign(capacity, 0.0);\n    11\t        m_capacity = capacity;\n    12\t        m_head = 0;\n    13\t        m_tail = 0;\n    14\t        m_count = 0;\n    15\t    }\n    16\t\n    17\t    bool push(double waypoint) {\n    18\t        if (m_count >= m_capacity) {\n    19\t            return false;\n    20\t        }\n    21\t\n    22\t        std::string log_id = \"Waypoint_Push_Event_\" + std::to_string(m_count);\n    23\t        std::function<void()> on_push = [this, waypoint, log_id]() {\n    24\t            m_buffer[m_tail] = waypoint;\n    25\t            m_tail = (m_tail + 1) % m_capacity;\n    26\t            m_count++;\n    27\t        };\n    28\t        on_push();\n    29\t\n    30\t        return true;\n    31\t    }\n    32\t\n    33\t    bool pop(double& out_waypoint) {\n    34\t        if (m_count == 0) {\n    35\t            return false;\n    36\t        }\n    37\t        out_waypoint = m_buffer[m_head];\n    38\t        m_head = (m_head + 1) % m_capacity;\n    39\t        m_count--;\n    40\t        return true;\n    41\t    }\n    42\t\n    43\tprivate:\n    44\t    std::vector<double> m_buffer;\n    45\t    size_t m_capacity = 0;\n    46\t    size_t m_head = 0;\n    47\t    size_t m_tail = 0;\n    48\t    size_t m_count = 0;\n    49\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `push` method contains several heap allocations:\n1. `std::string log_id = ...` creates a string on the heap.\n2. `std::function<void()> on_push = ...` can allocate memory for the closure if the captured state exceeds the small-buffer optimization limit.\n\nThese allocations are unnecessary for the core functionality of the ring buffer. I will remove the `log_id` and the `std::function` wrapper, implementing the logic directly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool push(double waypoint) {\\n        if (m_count >= m_capacity) {\\n            return false;\\n        }\\n\\n        std::string log_id = \\\"Waypoint_Push_Event_\\\" + std::to_string(m_count);\\n        std::function<void()> on_push = [this, waypoint, log_id]() {\\n            m_buffer[m_tail] = waypoint;\\n            m_tail = (m_tail + 1) % m_capacity;\\n            m_count++;\\n        };\\n        on_push();\\n\\n        return true;\\n    }\", \"new\": \"    bool push(double waypoint) {\\n        if (m_count >= m_capacity) {\\n            return false;\\n        }\\n\\n        m_buffer[m_tail] = waypoint;\\n        m_tail = (m_tail + 1) % m_capacity;\\n        m_count++;\\n\\n        return true;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests to ensure that the functional behavior remains correct after the removal of the heap allocations.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the heap allocations from the `push` method by eliminating the unnecessary `std::string` and `std::function` wrapper. The logic remains identical to the previous version, but it now satisfies the real-time constraint of being allocation-free.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

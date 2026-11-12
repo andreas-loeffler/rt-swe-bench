@@ -1,0 +1,111 @@
+{
+ "id": "data_structures__medium__sliding_window_average__31b",
+ "idea": {
+  "domain": "data_structures",
+  "level": "medium",
+  "name": "sliding_window_average",
+  "class": "SlidingWindowAverage",
+  "summary": "Updates a rolling sum and computes the mean of the last N samples using a circular buffer.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2005,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2005,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 13,
+   "compiled": 13,
+   "killed": 11,
+   "kill_rate": 0.846,
+   "survivors": [
+    "line 32: 0.0 -> 1.0",
+    "line 17: 0 -> 1"
+   ]
+  },
+  "G3": {
+   "container_growth.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2005,
+     "allocating_cycles": 15,
+     "allocs": 15,
+     "bytes": 7680,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 15
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "string_formatting.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2005,
+     "allocating_cycles": 1002,
+     "allocs": 1002,
+     "bytes": 31062,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1002
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "container_growth.hpp",
+    "string_formatting.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

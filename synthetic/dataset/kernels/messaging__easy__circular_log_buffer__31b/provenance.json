@@ -1,0 +1,123 @@
+{
+ "id": "messaging__easy__circular_log_buffer__31b",
+ "idea": {
+  "domain": "messaging",
+  "level": "easy",
+  "name": "circular_log_buffer",
+  "class": "CircularLogBuffer",
+  "summary": "Writes timestamped event strings into a fixed-size ring buffer for telemetry.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 31,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 31,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 22,
+   "killed": 19,
+   "kill_rate": 0.864,
+   "survivors": [
+    "line 47: 0 -> 1",
+    "line 55: 1 -> 0",
+    "line 55: 1 -> 2"
+   ]
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 31,
+     "allocating_cycles": 1,
+     "allocs": 1,
+     "bytes": 21,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 31,
+     "allocating_cycles": 1,
+     "allocs": 1,
+     "bytes": 21,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G2: kill rate 0.73 of 22 compiling mutants",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 1,
+ "test_include_normalized": true
+}

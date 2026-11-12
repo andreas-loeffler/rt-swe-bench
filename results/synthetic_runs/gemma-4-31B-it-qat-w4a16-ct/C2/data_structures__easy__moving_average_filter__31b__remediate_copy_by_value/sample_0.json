@@ -1,0 +1,99 @@
+{
+ "id": "data_structures__easy__moving_average_filter__31b__remediate_copy_by_value",
+ "kernel": "data_structures__easy__moving_average_filter__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "data_structures",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 500,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <numeric>\n#include <algorithm>\n\nclass MovingAverageFilter {\npublic:\n    void configure(size_t window_size) {\n        window_size_ = window_size;\n        buffer_.assign(window_size, 0.0);\n        sum_ = 0.0;\n        index_ = 0;\n        count_ = 0;\n    }\n\n    double process(double sample) {\n        if (window_size_ == 0) return 0.0;\n\n        if (count_ < window_size_) {\n            buffer_[index_] = sample;\n            sum_ += sample;\n            count_++;\n        } else {\n            sum_ -= buffer_[index_];\n            buffer_[index_] = sample;\n            sum_ += sample;\n        }\n\n        index_ = (index_ + 1) % window_size_;\n        return sum_ / count_;\n    }\n\nprivate:\n    std::vector<double> buffer_;\n    size_t window_size_ = 0;\n    size_t index_ = 0;\n    size_t count_ = 0;\n    double sum_ = 0.0;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 9025,
+  "completion_tokens": 851
+ },
+ "started": 1793821613.3342762,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1046.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation of `kernel.hpp` to identify where heap allocations are occurring in the real-time path.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-21 of 21)\n     1\t# MovingAverageFilter\n     2\t\n     3\tThe `MovingAverageFilter` computes the arithmetic mean of the most recent $N$ samples provided to it.\n     4\t\n     5\t## Public API\n     6\t\n     7\t- `void configure(size_t window_size)`\n     8\t  Configures the filter to use a window of $N$ samples. This method is called once before any real-time processing and may allocate memory.\n     9\t- `double process(double sample)`\n    10\t  Adds a new sample to the filter and returns the mean of the last $N$ samples. If fewer than $N$ samples have been processed, it returns the mean of all samples seen so far.\n    11\t\n    12\t## Constraints\n    13\t\n    14\t- `process` is a hard real-time method: it must not allocate heap memory, throw exceptions, use locks, or perform I/O.\n    15\t- Memory is reserved during the `configure` call.\n    16\t\n    17\t## Behavior\n    18\t\n    19\t- The filter uses a sliding window of size $N$.\n    20\t- When the buffer is not yet full, the output is $\\frac{1}{k} \\sum_{i=1}^{k} x_i$, where $k$ is the number of samples processed.\n    21\t- When the buffer is full, the output is $\\frac{1}{N} \\sum_{i=k-N+1}^{k} x_i$."
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will examine the current implementation of `kernel.hpp` to find the heap allocations.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-37 of 37)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <numeric>\n     5\t#include <algorithm>\n     6\t\n     7\tclass MovingAverageFilter {\n     8\tpublic:\n     9\t    void configure(size_t window_size) {\n    10\t        window_size_ = window_size;\n    11\t        buffer_.clear();\n    12\t        sum_ = 0.0;\n    13\t        index_ = 0;\n    14\t        count_ = 0;\n    15\t    }\n    16\t\n    17\t    double process(double sample) {\n    18\t        if (window_size_ == 0) return 0.0;\n    19\t\n    20\t        buffer_.push_back(sample);\n    21\t        \n    22\t        if (buffer_.size() > window_size_) {\n    23\t            std::vector<double> window(buffer_.end() - window_size_, buffer_.end());\n    24\t            buffer_ = window;\n    25\t        }\n    26\t\n    27\t        double current_sum = std::accumulate(buffer_.begin(), buffer_.end(), 0.0);\n    28\t        return current_sum / buffer_.size();\n    29\t    }\n    30\t\n    31\tprivate:\n    32\t    std::vector<double> buffer_;\n    33\t    size_t window_size_ = 0;\n    34\t    size_t index_ = 0;\n    35\t    size_t count_ = 0;\n    36\t    double sum_ = 0.0;\n    37\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `process` allocates heap memory in several ways: `buffer_.push_back(sample)` can cause reallocations, and lines 23-24 create a temporary `std::vector` and assign it to `buffer_`. Additionally, `std::accumulate` is used every time, which is $O(N)$.\n\nTo fix this and meet the real-time constraints, I will:\n1. Pre-allocate the `buffer_` size in `configure` using `reserve` or `resize`.\n2. Implement a circular buffer using `index_` and `count_`.\n3. Maintain a running `sum_` to ensure `process` is $O(1)$ and allocation-free.\n\nFirst, I'll update `configure`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t window_size) {\\n        window_size_ = window_size;\\n        buffer_.clear();\\n        sum_ = 0.0;\\n        index_ = 0;\\n        count_ = 0;\\n    }\", \"new\": \"    void configure(size_t window_size) {\\n        window_size_ = window_size;\\n        buffer_.assign(window_size, 0.0);\\n        sum_ = 0.0;\\n        index_ = 0;\\n        count_ = 0;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will rewrite the `process` method to use the circular buffer and the running sum, ensuring it doesn't allocate memory and runs in constant time.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double process(double sample) {\\n        if (window_size_ == 0) return 0.0;\\n\\n        buffer_.push_back(sample);\\n        \\n        if (buffer_.size() > window_size_) {\\n            std::vector<double> window(buffer_.end() - window_size_, buffer_.end());\\n            buffer_ = window;\\n        }\\n\\n        double current_sum = std::accumulate(buffer_.begin(), buffer_.end(), 0.0);\\n        return current_sum / buffer_.size();\\n    }\", \"new\": \"    double process(double sample) {\\n        if (window_size_ == 0) return 0.0;\\n\\n        if (count_ < window_size_) {\\n            buffer_[index_] = sample;\\n            sum_ += sample;\\n            count_++;\\n        } else {\\n            sum_ -= buffer_[index_];\\n            buffer_[index_] = sample;\\n            sum_ += sample;\\n        }\\n\\n        index_ = (index_ + 1) % window_size_;\\n        return sum_ / count_;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now test the implementation to ensure it is functionally correct.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have updated the `MovingAverageFilter` implementation to use a pre-allocated circular buffer and a running sum. This removes all heap allocations and $O(N)$ operations from the `process` method, making it compliant with the hard real-time constraints.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

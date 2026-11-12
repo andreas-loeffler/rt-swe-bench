@@ -1,0 +1,91 @@
+{
+ "id": "estimation__easy__exponential_moving_average__31b__implement",
+ "kernel": "estimation__easy__exponential_moving_average__31b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "estimation",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 505,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\nclass ExponentialMovingAverage {\npublic:\n    void configure(float alpha) {\n        m_alpha = alpha;\n        m_initialized = false;\n    }\n\n    float process(float input) {\n        if (!m_initialized) {\n            m_state = input;\n            m_initialized = true;\n            return m_state;\n        }\n        m_state = m_alpha * input + (1.0f - m_alpha) * m_state;\n        return m_state;\n    }\n\nprivate:\n    float m_alpha = 0.0f;\n    float m_state = 0.0f;\n    bool m_initialized = false;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 4866,
+  "completion_tokens": 470
+ },
+ "started": 1793821471.5279706,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 766.3,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by reviewing the specification and the current state of the code.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-22 of 22)\n     1\t# Exponential Moving Average (EMA)\n     2\t\n     3\tThe `ExponentialMovingAverage` class implements a first-order Infinite Impulse Response (IIR) filter used for domain estimation and signal smoothing. It computes a weighted average of the current input signal and the previous estimate.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(float alpha)`\n     8\tPrepares the filter. \n     9\t- `alpha`: The smoothing factor. Must be in the range `[0.0, 1.0]`.\n    10\t- A value of `1.0` means no smoothing (output equals input).\n    11\t- A value of `0.0` means the output never changes from the initial state.\n    12\t\n    13\t### `float process(float input)`\n    14\tProcesses a single sample.\n    15\t- **Precondition**: `configure()` must be called before the first call to `process()`.\n    16\t- **Real-time Constraint**: This method must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    17\t\n    18\t## Mathematical Behavior\n    19\tThe output $y[n]$ is computed as:\n    20\t$y[n] = \\alpha \\cdot x[n] + (1 - \\alpha) \\cdot y[n-1]$\n    21\t\n    22\tThe first sample processed initializes the internal state such that $y[0] = x[0]$."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current contents of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-13 of 13)\n     1\t#pragma once\n     2\t\n     3\tclass ExponentialMovingAverage {\n     4\tpublic:\n     5\t    void configure(float alpha) {\n     6\t        // TODO: implement\n     7\t    }\n     8\t\n     9\t    float process(float input) {\n    10\t        // TODO: implement\n    11\t        return 0.0f;\n    12\t    }\n    13\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will implement the `ExponentialMovingAverage` class according to the specification. I need to store `alpha` and the previous output `y[n-1]`, and I need a way to track if the filter has been initialized to handle the $y[0] = x[0]$ case.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class ExponentialMovingAverage {\\npublic:\\n    void configure(float alpha) {\\n        // TODO: implement\\n    }\\n\\n    float process(float input) {\\n        // TODO: implement\\n        return 0.0f;\\n    }\\n};\", \"new\": \"class ExponentialMovingAverage {\\npublic:\\n    void configure(float alpha) {\\n        m_alpha = alpha;\\n        m_initialized = false;\\n    }\\n\\n    float process(float input) {\\n        if (!m_initialized) {\\n            m_state = input;\\n            m_initialized = true;\\n            return m_state;\\n        }\\n        m_state = m_alpha * input + (1.0f - m_alpha) * m_state;\\n        return m_state;\\n    }\\n\\nprivate:\\n    float m_alpha = 0.0f;\\n    float m_state = 0.0f;\\n    bool m_initialized = false;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests to verify the implementation.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have implemented the `ExponentialMovingAverage` class according to the specification, ensuring that the first sample initializes the state and subsequent samples follow the EMA formula.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

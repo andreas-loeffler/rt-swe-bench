@@ -1,0 +1,107 @@
+{
+ "id": "control__hard__cascaded_pid_controller__31b__remediate_copy_by_value",
+ "kernel": "control__hard__cascaded_pid_controller__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1200,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <algorithm>\n\n\nclass PIDCore {\npublic:\n    struct Gains {\n        double kp, ki, kd;\n    };\n\n    void init(Gains g, double dt) {\n        gains = g;\n        sample_dt = dt;\n        integral = 0.0;\n        prev_error = 0.0;\n    }\n\n    void reset() {\n        integral = 0.0;\n        prev_error = 0.0;\n    }\n\n    double update(double setpoint, double measurement) {\n        double error = setpoint - measurement;\n        integral += error * sample_dt;\n        double derivative = (error - prev_error) / sample_dt;\n        prev_error = error;\n        return (gains.kp * error) + (gains.ki * integral) + (gains.kd * derivative);\n    }\n\n    void clamp_integral(double min_val, double max_val) {\n        integral = std::clamp(integral, min_val, max_val);\n    }\n\nprivate:\n    Gains gains;\n    double sample_dt = 0.0;\n    double integral = 0.0;\n    double prev_error = 0.0;\n};\n\n\nclass CascadedPIDController {\npublic:\n    enum class Mode { STANDBY, ACTIVE };\n\n    void configure(double dt, double outer_kp, double outer_ki, double outer_kd, \n                   double inner_kp, double inner_ki, double inner_kd, \n                   double out_min, double out_max) {\n        outer_pid.init({outer_kp, outer_ki, outer_kd}, dt);\n        inner_pid.init({inner_kp, inner_ki, inner_kd}, dt);\n        this->dt = dt;\n        this->out_min = out_min;\n        this->out_max = out_max;\n        current_mode = Mode::STANDBY;\n    }\n\n    void set_mode(bool active) {\n        if (active) {\n            current_mode = Mode::ACTIVE;\n        } else {\n            current_mode = Mode::STANDBY;\n            outer_pid.reset();\n            inner_pid.reset();\n        }\n    }\n\n    double step(double setpoint, double outer_meas, double inner_meas) {\n        if (current_mode == Mode::STANDBY) {\n            return 0.0;\n        }\n\n        double inner_setpoint = outer_pid.update(setpoint, outer_meas);\n        double output = inner_pid.update(inner_setpoint, inner_meas);\n        \n        double clamped_out = std::clamp(output, out_min, out_max);\n\n        if (output > out_max || output < out_min) {\n            inner_pid.clamp_integral(out_min, out_max);\n        }\n\n        return clamped_out;\n    }\n\nprivate:\n    PIDCore outer_pid;\n    PIDCore inner_pid;\n    Mode current_mode = Mode::STANDBY;\n    double dt = 0.0;\n    double out_min = 0.0;\n    double out_max = 0.0;\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 17376,
+  "completion_tokens": 878
+ },
+ "started": 1793819779.2628002,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1080.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-36 of 36)\n     1\t# CascadedPIDController Specification\n     2\t\n     3\tThe `CascadedPIDController` implements a nested control loop structure typically used in robotics (e.g., a position loop providing the setpoint for a velocity loop).\n     4\t\n     5\t## Mathematical Behavior\n     6\t- **Outer Loop**: Computes a target for the inner loop based on the error between a primary setpoint and the primary measurement.\n     7\t- **Inner Loop**: Computes the final actuator output based on the error between the target provided by the outer loop and the secondary measurement.\n     8\t- Both loops use a Parallel PID form: $u(t) = K_p e(t) + K_i \\int e(t)dt + K_d \\frac{de(t)}{dt}$.\n     9\t- The controller supports an \"Anti-Windup\" clamp on the integrator and a hard output limit.\n    10\t- The controller operates in two modes: `STANDBY` (output 0, integrals reset) and `ACTIVE` (full control).\n    11\t\n    12\t## Public API\n    13\t\n    14\t### Configuration\n    15\t- `void configure(double dt, double outer_kp, double outer_ki, double outer_kd, double inner_kp, double inner_ki, double inner_kd, double out_min, double out_max)`\n    16\t  - Called once before real-time execution.\n    17\t  - Sets the sampling period and PID gains for both loops.\n    18\t  - Defines the hard limits for the final actuator output.\n    19\t\n    20\t### Real-time Methods\n    21\tThe following methods must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    22\t\n    23\t- `void set_mode(bool active)`\n    24\t  - Switches between `STANDBY` and `ACTIVE`. \n    25\t  - Transitioning to `STANDBY` resets the internal integrators of both loops.\n    26\t- `double step(double setpoint, double outer_meas, double inner_meas)`\n    27\t  - Computes the control signal.\n    28\t  - `setpoint`: Desired value for the outer loop.\n    29\t  - `outer_meas`: Current measured value for the outer loop.\n    30\t  - `inner_meas`: Current measured value for the inner loop.\n    31\t  - Returns the clamped actuator output.\n    32\t\n    33\t## Preconditions\n    34\t- `configure` must be called before `step` or `set_mode`.\n    35\t- `dt` must be greater than zero.\n    36\t- `out_max` must be greater than `out_min`."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-99 of 99)\n     1\t#pragma once\n     2\t#include <algorithm>\n     3\t#include <vector>\n     4\t\n     5\tclass PIDCore {\n     6\tpublic:\n     7\t    struct Gains {\n     8\t        double kp, ki, kd;\n     9\t    };\n    10\t\n    11\t    void init(Gains g, double dt) {\n    12\t        gains = g;\n    13\t        sample_dt = dt;\n    14\t        integral = 0.0;\n    15\t        prev_error = 0.0;\n    16\t    }\n    17\t\n    18\t    void reset() {\n    19\t        integral = 0.0;\n    20\t        prev_error = 0.0;\n    21\t    }\n    22\t\n    23\t    double update(double setpoint, double measurement) {\n    24\t        double error = setpoint - measurement;\n    25\t        integral += error * sample_dt;\n    26\t        double derivative = (error - prev_error) / sample_dt;\n    27\t        prev_error = error;\n    28\t        return (gains.kp * error) + (gains.ki * integral) + (gains.kd * derivative);\n    29\t    }\n    30\t\n    31\t    void clamp_integral(double min_val, double max_val) {\n    32\t        integral = std::clamp(integral, min_val, max_val);\n    33\t    }\n    34\t\n    35\tprivate:\n    36\t    Gains gains;\n    37\t    double sample_dt = 0.0;\n    38\t    double integral = 0.0;\n    39\t    double prev_error = 0.0;\n    40\t};\n    41\t\n    42\tclass ControlUtils {\n    43\tpublic:\n    44\t    static std::vector<double> compute_clamp_bounds(double min_v, double max_v) {\n    45\t        return {min_v, max_v};\n    46\t    }\n    47\t};\n    48\t\n    49\tclass CascadedPIDController {\n    50\tpublic:\n    51\t    enum class Mode { STANDBY, ACTIVE };\n    52\t\n    53\t    void configure(double dt, double outer_kp, double outer_ki, double outer_kd, \n    54\t                   double inner_kp, double inner_ki, double inner_kd, \n    55\t                   double out_min, double out_max) {\n    56\t        outer_pid.init({outer_kp, outer_ki, outer_kd}, dt);\n    57\t        inner_pid.init({inner_kp, inner_ki, inner_kd}, dt);\n    58\t        this->dt = dt;\n    59\t        this->out_min = out_min;\n    60\t        this->out_max = out_max;\n    61\t        current_mode = Mode::STANDBY;\n    62\t    }\n    63\t\n    64\t    void set_mode(bool active) {\n    65\t        if (active) {\n    66\t            current_mode = Mode::ACTIVE;\n    67\t        } else {\n    68\t            current_mode = Mode::STANDBY;\n    69\t            outer_pid.reset();\n    70\t            inner_pid.reset();\n    71\t        }\n    72\t    }\n    73\t\n    74\t    double step(double setpoint, double outer_meas, double inner_meas) {\n    75\t        if (current_mode == Mode::STANDBY) {\n    76\t            return 0.0;\n    77\t        }\n    78\t\n    79\t        double inner_setpoint = outer_pid.update(setpoint, outer_meas);\n    80\t        double output = inner_pid.update(inner_setpoint, inner_meas);\n    81\t        \n    82\t        double clamped_out = std::clamp(output, out_min, out_max);\n    83\t\n    84\t        if (output > out_max || output < out_min) {\n    85\t            std::vector<double> bounds = ControlUtils::compute_clamp_bounds(out_min, out_max);\n    86\t            inner_pid.clamp_integral(bounds[0], bounds[1]); \n    87\t        }\n    88\t\n    89\t        return clamped_out;\n    90\t    }\n    91\t\n    92\tprivate:\n    93\t    PIDCore outer_pid;\n    94\t    PIDCore inner_pid;\n    95\t    Mode current_mode = Mode::STANDBY;\n    96\t    double dt = 0.0;\n    97\t    double out_min = 0.0;\n    98\t    double out_max = 0.0;\n    99\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe current implementation of `step` calls `ControlUtils::compute_clamp_bounds`, which returns a `std::vector<double>`, causing a heap allocation on every cycle where the output is clamped. This violates the real-time requirement. I will remove the `ControlUtils` class and call `clamp_integral` directly using the member variables `out_min` and `out_max`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        if (output > out_max || output < out_min) {\\n            std::vector<double> bounds = ControlUtils::compute_clamp_bounds(out_min, out_max);\\n            inner_pid.clamp_integral(bounds[0], bounds[1]); \\n        }\", \"new\": \"        if (output > out_max || output < out_min) {\\n            inner_pid.clamp_integral(out_min, out_max);\\n        }\"}}\n```\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class ControlUtils {\\npublic:\\n    static std::vector<double> compute_clamp_bounds(double min_v, double max_v) {\\n        return {min_v, max_v};\\n    }\\n};\\n\", \"new\": \"\"}}\n```\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\", \"new\": \"\"}}\n```\n\nWait, I should do these as separate actions. Let's start with the `step` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        if (output > out_max || output < out_min) {\\n            std::vector<double> bounds = ControlUtils::compute_clamp_bounds(out_min, out_max);\\n            inner_pid.clamp_integral(bounds[0], bounds[1]); \\n        }\", \"new\": \"        if (output > out_max || output < out_min) {\\n            inner_pid.clamp_integral(out_min, out_max);\\n        }\"}}\n```\n\nThen remove `ControlUtils` and the header.\n\nWait, the prompt says one action per reply.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        if (output > out_max || output < out_min) {\\n            std::vector<double> bounds = ControlUtils::compute_clamp_bounds(out_min, out_max);\\n            inner_pid.clamp_integral(bounds[0], bounds[1]); \\n        }\", \"new\": \"        if (output > out_max || output < out_min) {\\n            inner_pid.clamp_integral(out_min, out_max);\\n        }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I will remove the `ControlUtils` class which is no longer used and would otherwise leave dead code (and depends on `std::vector`).\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class ControlUtils {\\npublic:\\n    static std::vector<double> compute_clamp_bounds(double min_v, double max_v) {\\n        return {min_v, max_v};\\n    }\\n};\\n\", \"new\": \"\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\", \"new\": \"\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"submit\", \"args\": {}}"
+  }
+ ]
+}

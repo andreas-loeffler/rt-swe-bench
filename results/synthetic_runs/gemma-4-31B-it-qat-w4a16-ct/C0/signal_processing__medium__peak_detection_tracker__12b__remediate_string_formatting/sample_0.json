@@ -1,0 +1,115 @@
+{
+ "id": "signal_processing__medium__peak_detection_tracker__12b__remediate_string_formatting",
+ "kernel": "signal_processing__medium__peak_detection_tracker__12b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "signal_processing",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 118,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstdint>\n\nclass PeakDetector {\npublic:\n    void configure(float threshold, uint32_t min_distance) {\n        threshold_ = threshold;\n        min_distance_ = min_distance;\n        last_peak_idx_ = -1000000;\n        current_idx_ = 0;\n        prev_sample_ = 0.0f;\n        prev2_sample_ = 0.0f;\n    }\n\n    bool process(float sample) {\n        bool detected = false;\n        current_idx_++;\n        if (current_idx_ >= 3) {\n            if (prev_sample_ > threshold_ && prev_sample_ > prev2_sample_ && prev_sample_ > sample) {\n                if ((int)current_idx_ - 2 - last_peak_idx_ >= (int)min_distance_) {\n                    last_peak_idx_ = (int)current_idx_ - 2;\n                    detected = true;\n                }\n            }\n        }\n        prev2_sample_ = prev_sample_;\n        prev_sample_ = sample;\n        return detected;\n    }\n\nprivate:\n    float threshold_ = 0.0f;\n    uint32_t min_distance_ = 1;\n    int last_peak_idx_ = -1000000;\n    int current_idx_ = 0;\n    float prev_sample_ = 0.0f;\n    float prev2_sample_ = 0.0f;\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 31184,
+  "completion_tokens": 4329
+ },
+ "started": 1793818738.0137935,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1246.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation to identify where heap allocations are occurring.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-31 of 31)\n     1\t# PeakDetector\n     2\t\n     3\tThe `PeakDetector` class identifies local maxima (peaks) in a stream of real-time signal samples. A sample is considered a peak if it is strictly greater than its immediate neighbors and exceeds a user-defined threshold.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### `void configure(float threshold, uint32_t min_distance)`\n     8\tConfigures the detector. \n     9\t- `threshold`: The minimum value a sample must exceed to be considered a candidate.\n    10\t- `min_distance`: The minimum number of samples that must pass between consecutive detected peaks.\n    11\t- This method may allocate memory for internal state.\n    12\t\n    13\t### `bool process(float sample)`\n    14\tProcesses a single sample from the stream.\n    15\t- Returns `true` if a new peak was detected at this sample.\n    16\t- Returns `false` otherwise.\n    17\t\n    18\t## Behavior\n    19\t1. **Peak Condition**: A peak is detected at index $i$ if:\n    20\t   - $sample[i] > threshold$\n    21\t   - $sample[i] > sample[i-1]$\n    22\t   - $sample[i] > sample[i+1]$ (Note: Since the stream is real-time, the \"next\" sample is not known. A peak is confirmed at index $i$ when $sample[i+1]$ is observed and is smaller than $sample[i]$).\n    23\t2. **Distance Constraint**: A peak is only valid if it occurs at least `min_distance` samples after the previous confirmed peak.\n    24\t3. **Refinement**: Because $sample[i+1]$ is required to confirm $sample[i]$, the `process` method returns `true` at index $i+1$ when the peak at $i$ is confirmed.\n    25\t4. **Edge Cases**:\n    26\t   - If the stream ends, any pending peak candidate is discarded.\n    27\t   - If `min_distance` is 0, peaks can be detected consecutively.\n    28\t   - If `threshold` is infinity, no peaks are detected.\n    29\t\n    30\t## Real-time Guarantees\n    31\tThe `process` method is a hard real-time call. It must not allocate heap memory, throw exceptions, use locks, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will examine the current implementation of `kernel.hpp` to identify the heap allocations in the `process` method.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-48 of 48)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <cstdint>\n     4\t#include <string>\n     5\t\n     6\tclass PeakDetector {\n     7\tpublic:\n     8\t    void configure(float threshold, uint32_t min_distance) {\n     9\t        threshold_ = threshold;\n    10\t        min_distance_ = min_distance;\n    11\t        samples_ = {};\n    12\t        last_peak_idx_ = -1000000; \n    13\t    }\n    14\t\n    15\t    bool process(float sample) {\n    16\t        // Using a string to log/track the current sample status for debugging purposes\n    17\t        // This creates a heap allocation via std::string construction on every call.\n    18\t        std::string status = \"Processing sample: \" + std::to_string(sample);\n    19\t        \n    20\t        samples_.push_back(sample);\n    21\t        size_t n = samples_.size();\n    22\t\n    23\t        if (n < 3) return false;\n    24\t\n    25\t        size_t current_idx = n - 1;\n    26\t        size_t i = current_idx - 1; \n    27\t        \n    28\t        if (i >= 1) {\n    29\t            float prev = samples_[i];\n    30\t            float prev2 = samples_[i-1];\n    31\t            float next = samples_[current_idx];\n    32\t\n    33\t            if (prev > threshold_ && prev > prev2 && prev > next) {\n    34\t                if ((int)i - last_peak_idx_ >= (int)min_distance_) {\n    35\t                    last_peak_idx_ = (int)i;\n    36\t                    return true;\n    37\t                }\n    38\t            }\n    39\t        }\n    40\t        return false;\n    41\t    }\n    42\t\n    43\tprivate:\n    44\t    float threshold_ = 0.0f;\n    45\t    uint32_t min_distance_ = 1;\n    46\t    std::vector<float> samples_;\n    47\t    int last_peak_idx_ = -1000000;\n    48\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `process` performs several heap allocations:\n1. It creates a `std::string` on every call (line 18).\n2. It uses `std::vector::push_back` (line 20), which can trigger reallocations.\n3. It stores all samples in a vector, which grows indefinitely.\n\nTo make `process` allocation-free, I need to:\n1. Remove the `std::string` logging.\n2. Replace the `std::vector` with a small fixed-size buffer (or just a few member variables) since the logic only depends on the last three samples and the index of the last peak.\n3. Track the current sample index independently of a growing container.\n\nLooking at the logic:\n- Peak at $i$ is confirmed at $i+1$.\n- Condition: $sample[i] > threshold$, $sample[i] > sample[i-1]$, and $sample[i] > sample[i+1]$.\n- Distance: $i - last\\_peak\\_idx \\ge min\\_distance$.\n\nI only need to store $sample[i-1]$, $sample[i]$, and the current $sample[i+1]$.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool process(float sample) {\\n        // Using a string to log/track the current sample status for debugging purposes\\n        // This creates a heap allocation via std::string construction on every call.\\n        std::string status = \\\"Processing sample: \\\" + std::to_string(sample);\\n        \\n        samples_.push_back(sample);\\n        size_t n = samples_.size();\\n\\n        if (n < 3) return false;\\n\\n        size_t current_idx = n - 1;\\n        size_t i = current_idx - 1; \\n        \\n        if (i >= 1) {\\n            float prev = samples_[i];\\n            float prev2 = samples_[i-1];\\n            float next = samples_[current_idx];\\n\\n            if (prev > threshold_ && prev > prev2 && prev > next) {\\n                if ((int)i - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)i;\\n                    return true;\\n                }\\n            }\\n        }\\n        return false;\\n    }\", \"new\": \"    bool process(float sample) {\\n        bool detected = false;\\n        current_idx_++;\\n\\n        if (current_idx_ >= 2) {\\n            if (prev_sample_ > threshold_ && prev_sample_ > prev2_sample_ && prev_sample_ > sample) {\\n                if ((int)current_idx_ - 1 - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)current_idx_ - 1;\\n                    detected = true;\\n                }\\n            }\\n        }\\n\\n        prev2_sample_ = prev_sample_;\\n        prev_sample_ = sample;\\n        return detected;\\n    }\"}}\n```\n\nWait, I also need to update the private members and the `configure` method to match this new state-based approach.\n\nFirst, let's update the `process` method as intended, then I'll fix the class members and `configure`.\n\nActually, I should probably do it in a way that ensures the logic remains identical.\nCurrent logic:\n`n` is size after push_back.\n`current_idx = n-1`\n`i = n-2`\n`prev = samples[n-2]`\n`prev2 = samples[n-3]`\n`next = samples[n-1]`\nPeak confirmed at $i = n-2$.\nCondition: `samples[n-2] > threshold && samples[n-2] > samples[n-3] && samples[n-2] > samples[n-1]`.\nDistance: `(n-2) - last_peak_idx >= min_distance`.\n\nMy proposed change:\n`current_idx_` starts at 0.\n1st call: `current_idx_` becomes 1. `current_idx_ >= 2` is false. `prev2_` = ?, `prev_` = sample[0].\n2nd call: `current_idx_` becomes 2. `current_idx_ >= 2` is true. `prev_sample_` is sample[0], `prev2_sample_` is ?.\nThis is slightly off.\n\nLet's refine the member variables first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        samples_ = {};\\n        last_peak_idx_ = -1000000; \\n    }\", \"new\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        last_peak_idx_ = -1000000;\\n        current_idx_ = 0;\\n        prev_sample_ = 0.0f;\\n        prev2_sample_ = 0.0f;\\n    }\"}}\n```\n\nAnd update members:\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<float> samples_;\\n    int last_peak_idx_ = -1000000;\\n    }\", \"new\": \"    int last_peak_idx_ = -1000000;\\n    int current_idx_ = 0;\\n    float prev_sample_ = 0.0f;\\n    float prev2_sample_ = 0.0f;\\n    }\"}}\n```\n\nAnd remove `#include <vector>` and `#include <string>`.\n\nWait, I'll do it all together or sequentially. I'll do the `process` method and members carefully.\n\nLet's re-evaluate the `process` logic with the state variables:\nInitial: `current_idx_ = 0`, `prev_ = 0`, `prev2_ = 0`.\n\nCall 1 (sample[0]):\n`current_idx_` -> 1\n`current_idx_ >= 2` is false.\n`prev2_` = 0\n`prev_` = sample[0]\n\nCall 2 (sample[1]):\n`current_idx_` -> 2\n`current_idx_ >= 2` is true.\nCheck: `prev_sample_` (sample[0]) > threshold && `prev_sample_` > `prev2_sample_` (0) && `prev_sample_` > sample[1].\nThis is wrong because `prev2_sample_` was 0, not sample[-1]. The original code required `n >= 3` (at least 3 samples) before it could ever detect a peak.\n\nCorrect sequence for `n=3`:\n`samples[0]`, `samples[1]`, `samples[2]`.\n`current_idx` = 2.\n`i = 1`.\n`prev = samples[1]`, `prev2 = samples[0]`, `next = samples[2]`.\nCondition: `samples[1] > threshold && samples[1] > samples[0] && samples[1] > samples[2]`.\nDistance: `1 - last_peak_idx >= min_distance`.\n\nSo in my state-based version:\nCall 1: `current_idx_`=1, `prev_`=sample[0], `prev2_`=0.\nCall 2: `current_idx_`=2, `prev_`=sample[1], `prev2_`=sample[0].\nCall 3: `current_idx_`=3, check `prev_` (sample[1]), `prev2_` (sample[0]), `next` (sample[2]).\nThis matches.\n\nSo:\n```cpp\n    bool process(float sample) {\n        bool detected = false;\n        current_idx_++;\n        if (current_idx_ >= 3) {\n            if (prev_sample_ > threshold_ && prev_sample_ > prev2_sample_ && prev_sample_ > sample) {\n                if ((int)current_idx_ - 2 - last_peak_idx_ >= (int)min_distance_) {\n                    last_peak_idx_ = (int)current_idx_ - 2;\n                    detected = true;\n                }\n            }\n        }\n        prev2_sample_ = prev_sample_;\n        prev_sample_ = sample;\n        return detected;\n    }\n```\nWait, `current_idx_` is 3. `prev_sample_` is `sample[1]`, `prev2_sample_` is `sample[0]`.\nThe index of `prev_sample_` is `current_idx_ - 2` (3-2 = 1). Correct.\n\nLet's apply the changes.\n\nFirst, the includes.\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\\n#include <cstdint>\\n#include <string>\", \"new\": \"#include <cstdint>\"}}\n```\n\nNext, the `configure` method.\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        samples_ = {};\\n        last_peak_idx_ = -1000000; \\n    }\", \"new\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        last_peak_idx_ = -1000000;\\n        current_idx_ = 0;\\n        prev_sample_ = 0.0f;\\n        prev2_sample_ = 0.0f;\\n    }\"}}\n```\n\nNext, the `process` method.\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool process(float sample) {\\n        // Using a string to log/track the current sample status for debugging purposes\\n        // This creates a heap allocation via std::string construction on every call.\\n        std::string status = \\\"Processing sample: \\\" + std::to_string(sample);\\n        \\n        samples_.push_back(sample);\\n        size_t n = samples_.size();\\n\\n        if (n < 3) return false;\\n\\n        size_t current_idx = n - 1;\\n        size_t i = current_idx - 1; \\n        \\n        if (i >= 1) {\\n            float prev = samples_[i];\\n            float prev2 = samples_[i-1];\\n            float next = samples_[current_idx];\\n\\n            if (prev > threshold_ && prev > prev2 && prev > next) {\\n                if ((int)i - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)i;\\n                    return true;\\n                }\\n            }\\n        }\\n        return false;\\n    }\", \"new\": \"    bool process(float sample) {\\n        bool detected = false;\\n        current_idx_++;\\n        if (current_idx_ >= 3) {\\n            if (prev_sample_ > threshold_ && prev_sample_ > prev2_sample_ && prev_sample_ > sample) {\\n                if ((int)current_idx_ - 2 - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)current_idx_ - 2;\\n                    detected = true;\\n                }\\n            }\\n        }\\n        prev2_sample_ = prev_sample_;\\n        prev_sample_ = sample;\\n        return detected;\\n    }\"}}\n```\n\nFinally, the member variables.\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<float> samples_;\\n    int last_peak_idx_ = -1000000;\", \"new\": \"    int last_peak_idx_ = -1000000;\\n    int current_idx_ = 0;\\n    float prev_sample_ = 0.0f;\\n    float prev2_sample_ = 0.0f;\"}}\n```\n\nWait, the original `last_peak_idx_` had a default value of `-1000000`.\nThe original members were:\n```cpp\n    float threshold_ = 0.0f;\n    uint32_t min_distance_ = 1;\n    std::vector<float> samples_;\n    int last_peak_idx_ = -1000000;\n```\nThe new members should be:\n```cpp\n    float threshold_ = 0.0f;\n    uint32_t min_distance_ = 1;\n    int last_peak_idx_ = -1000000;\n    int current_idx_ = 0;\n    float prev_sample_ = 0.0f;\n    float prev2_sample_ = 0.0f;\n```\n\nLet's verify the replacement of member variables.\nThe `old` string in my last `edit` was:\n`\"    std::vector<float> samples_\\n    int last_peak_idx_ = -1000000;\"`\nLooking at `kernel.hpp` lines 46-47:\n`46\t    std::vector<float> samples_;`\n`47\t    int last_peak_idx_ = -1000000;`\nThere is a semicolon on line 46. My `old` string missed it.\n\nLet's correct and execute.\n\nActually, I'll do the includes first.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"#include <vector>\\n#include <cstdint>\\n#include <string>\", \"new\": \"#include <cstdint>\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        samples_ = {};\\n        last_peak_idx_ = -1000000; \\n    }\", \"new\": \"    void configure(float threshold, uint32_t min_distance) {\\n        threshold_ = threshold;\\n        min_distance_ = min_distance;\\n        last_peak_idx_ = -1000000;\\n        current_idx_ = 0;\\n        prev_sample_ = 0.0f;\\n        prev2_sample_ = 0.0f;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool process(float sample) {\\n        // Using a string to log/track the current sample status for debugging purposes\\n        // This creates a heap allocation via std::string construction on every call.\\n        std::string status = \\\"Processing sample: \\\" + std::to_string(sample);\\n        \\n        samples_.push_back(sample);\\n        size_t n = samples_.size();\\n\\n        if (n < 3) return false;\\n\\n        size_t current_idx = n - 1;\\n        size_t i = current_idx - 1; \\n        \\n        if (i >= 1) {\\n            float prev = samples_[i];\\n            float prev2 = samples_[i-1];\\n            float next = samples_[current_idx];\\n\\n            if (prev > threshold_ && prev > prev2 && prev > next) {\\n                if ((int)i - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)i;\\n                    return true;\\n                }\\n            }\\n        }\\n        return false;\\n    }\", \"new\": \"    bool process(float sample) {\\n        bool detected = false;\\n        current_idx_++;\\n        if (current_idx_ >= 3) {\\n            if (prev_sample_ > threshold_ && prev_sample_ > prev2_sample_ && prev_sample_ > sample) {\\n                if ((int)current_idx_ - 2 - last_peak_idx_ >= (int)min_distance_) {\\n                    last_peak_idx_ = (int)current_idx_ - 2;\\n                    detected = true;\\n                }\\n            }\\n        }\\n        prev2_sample_ = prev_sample_;\\n        prev_sample_ = sample;\\n        return detected;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    std::vector<float> samples_;\\n    int last_peak_idx_ = -1000000;\", \"new\": \"    int last_peak_idx_ = -1000000;\\n    int current_idx_ = 0;\\n    float prev_sample_ = 0.0f;\\n    float prev2_sample_ = 0.0f;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have removed the heap allocations from the `process` method by eliminating the `std::string` logging and replacing the `std::vector` storage with a small set of fixed-size state variables (`prev_sample_`, `prev2_sample_`, and `current_idx_`). The `configure` method now resets these variables, and the peak detection logic remains functionally identical to the original implementation.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "id": "scheduling__medium__watchdog_supervisor__31b__implement",
+ "kernel": "scheduling__medium__watchdog_supervisor__31b",
+ "kind": "implement",
+ "level": "medium",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 667,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cstddef>\n\nclass WatchdogSupervisor {\nprivate:\n    std::vector<double> timeouts_;\n    std::vector<double> timers_;\n    bool failsafe_ = false;\n\npublic:\n    void configure(size_t num_sources, const std::vector<double>& timeouts_sec) {\n        timeouts_ = timeouts_sec;\n        timers_ = timeouts_sec;\n        failsafe_ = false;\n    }\n\n    void kick(size_t source_id) {\n        timers_[source_id] = timeouts_[source_id];\n    }\n\n    bool process(double delta_time_sec) {\n        if (!failsafe_) {\n            for (size_t i = 0; i < timers_.size(); ++i) {\n                timers_[i] -= delta_time_sec;\n                if (timers_[i] <= 0.0) {\n                    failsafe_ = true;\n                    break;\n                }\n            }\n        }\n        return failsafe_;\n    }\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 16740,
+  "completion_tokens": 1535
+ },
+ "started": 1793815665.858061,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1053.7,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will start by reading the specification in `spec.md` and the current state of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# WatchdogSupervisor\n     2\t\n     3\tThe `WatchdogSupervisor` monitors multiple heartbeat signals. For each signal source, it tracks a timeout period. If a source fails to \"kick\" the watchdog (reset its timer) within its allocated timeout period, the supervisor enters a \"failsafe\" state.\n     4\t\n     5\t## Public API\n     6\t\n     7\t- `void configure(size_t num_sources, const std::vector<double>& timeouts_sec)`\n     8\t  Configures the supervisor for a specific number of heartbeat sources and their respective timeout durations in seconds. This is called once during initialization and may allocate memory.\n     9\t\n    10\t- `void kick(size_t source_id)`\n    11\t  Resets the timer for the specified source. If the system was previously in a failsafe state, this method does NOT clear the failsafe state.\n    12\t  Precondition: `source_id` must be within the range `[0, num_sources)`.\n    13\t  Real-time constraint: Must not allocate, throw, lock, or perform I/O.\n    14\t\n    15\t- `bool process(double delta_time_sec)`\n    16\t  Advances the internal clock for all monitors by `delta_time_sec`. Returns `true` if the system is currently in a failsafe state (i.e., at least one timer has expired), otherwise returns `false`. Once the system enters a failsafe state, it remains in that state regardless of further `kick` calls.\n    17\t  Precondition: `delta_time_sec` must be non-negative.\n    18\t  Real-time constraint: Must not allocate, throw, lock, or perform I/O.\n    19\t\n    20\t## Behavior\n    21\t1. Each source starts with a timer equal to its timeout value.\n    22\t2. `kick(id)` resets the timer for source `id` back to its configured timeout value.\n    23\t3. `process(dt)` decrements the timers for all sources.\n    24\t4. If any timer reaches $\\le 0$, the supervisor flags a failsafe condition.\n    25\t5. The failsafe condition is sticky: once `process` returns `true`, it will always return `true` for all subsequent calls."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nNow I will read the current contents of `kernel.hpp` to see the stub.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n``` those are the files.```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```\n\nWait, I already sent the view request. Let me see the output. (Actually, the previous turn didn't provide the file content yet, but I just requested it).\n\nActually, I just realized I haven't received the file content yet. I'll wait for the output of the last `view` call. (Self-correction: I am the one generating the turns, and I just sent the view request. I should now receive the output in the next prompt from the system. But wait, looking at the history, I did send it).\n\nWait, I see what happened. I sent the request but the \"user\" (system) hasn't responded yet. I'll wait.\n\nWait, I see the turn history. I sent `{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}`. Now I need to wait for the response.\n\nActually, the \"user\" is the one providing the file contents. Let me check the previous response... ah, I see, I am just waiting for the output of the `view` tool.\n\n*Correction*: I am simulating the process. I need to provide the action and then the system provides the output. I'll assume the output follows.\n\nActually, looking at the provided logs, I haven't received `kernel.hpp` content yet.\n\nLet me try to view `kernel.hpp` again.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-20 of 20)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstddef>\n     5\t\n     6\tclass WatchdogSupervisor {\n     7\tpublic:\n     8\t    void configure(size_t num_sources, const std::vector<double>& timeouts_sec) {\n     9\t        // TODO: implement\n    10\t    }\n    11\t\n    12\t    void kick(size_t source_id) {\n    13\t        // TODO: implement\n    14\t    }\n    15\t\n    16\t    bool process(double delta_time_sec) {\n    17\t        // TODO: implement\n    18\t        return false;\n    19\t    }\n    20\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to implement the `WatchdogSupervisor` class.\n- `configure`: store the timeouts and initialize timers.\n- `kick`: reset the timer for a specific source.\n- `process`: decrement all timers, check if any hit zero or less, and mark the failsafe state as sticky.\n\nI'll need a vector to store the current timer values and a boolean to track the sticky failsafe state.\n\nPlan:\n1. Add private members: `std::vector<double> timers_`, `bool failsafe_ = false`.\n2. In `configure`: \n   - Clear/resize `timers_` to match `num_sources`.\n   - Copy values from `timeouts_sec` to `timers_`.\n   - Reset `failsafe_` to `false`.\n3. In `kick`:\n   - Check (implicitly or explicitly) if `source_id` is valid.\n   - Reset `timers_[source_id]` to the original timeout. Wait, I need to store the original timeouts too.\n   - So I need two vectors: `timeouts_` and `timers_`.\n4. In `process`:\n   - Iterate through `timers_` and subtract `delta_time_sec`.\n   - If any `timers_[i] <= 0`, set `failsafe_ = true`.\n   - Return `failsafe_`.\n\nWait, if I only store `timers_`, how do I know the original timeout for `kick`? I must store `timeouts_` as well.\n\nRevised plan:\n- Private members: `std::vector<double> timeouts_`, `std::vector<double> timers_`, `bool failsafe_ = false`.\n- `configure(num_sources, timeouts_sec)`:\n  - `timeouts_ = timeouts_sec`\n  - `timers_ = timeouts_sec`\n  - `failsafe_ = false`\n- `kick(source_id)`:\n  - `timers_[source_id] = timeouts_[source_id]`\n- `process(delta_time_sec)`:\n  - for each timer: `timers_[i] -= delta_time_sec`\n  - if any `timers_[i] <= 0`, `failsafe_ = true`\n  - return `failsafe_`\n\nLet's refine the member additions.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class WatchdogSupervisor {\\npublic:\", \"new\": \"class WatchdogSupervisor {\\nprivate:\\n    std::vector<double> timeouts_;\\n    std::vector<double> timers_;\\n    bool failsafe_ = false;\\n\\npublic:\"}}\n``````json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class WatchdogSupervisor {\\npublic:\", \"new\": \"class WatchdogSupervisor {\\nprivate:\\n    std::vector<double> timeouts_;\\n    std::vector<double> timers_;\\n    bool failsafe_ = false;\\n\\npublic:\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t num_sources, const std::vector<double>& timeouts_sec) {\\n        // TODO: implement\\n    }\", \"new\": \"    void configure(size_t num_sources, const std::vector<double>& timeouts_sec) {\\n        timeouts_ = timeouts_sec;\\n        timers_ = timeouts_sec;\\n        failsafe_ = false;\\n    }\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void kick(size_t source_id) {\\n        // TODO: implement\\n    }\", \"new\": \"    void kick(size_t source_id) {\\n        timers_[source_id] = timeouts_[source_id];\\n    }\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool process(double delta_time_sec) {\\n        // TODO: implement\\n        return false;\\n    }\", \"new\": \"    bool process(double delta_time_sec) {\\n        if (!failsafe_) {\\n            for (size_t i = 0; i < timers_.size(); ++i) {\\n                timers_[i] -= delta_time_sec;\\n                if (timers_[i] <= 0.0) {\\n                    failsafe_ = true;\\n                    break;\\n                }\\n            }\\n        }\\n        return failsafe_;\\n    }\"}}"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "call:{\"tool\": \"test\", \"args\": {}}"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

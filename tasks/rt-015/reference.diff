@@ -1,0 +1,16 @@
+diff --git a/forward_command_controller/src/forward_controllers_base.cpp b/forward_command_controller/src/forward_controllers_base.cpp
+index 1d16fdf6..87327ec3 100644
+--- a/forward_command_controller/src/forward_controllers_base.cpp
++++ b/forward_command_controller/src/forward_controllers_base.cpp
+@@ -191,6 +191,11 @@ controller_interface::return_type ForwardControllersBase::update(
+ 
+   for (auto index = 0ul; index < command_interfaces_.size(); ++index)
+   {
++    // NaN means "no new command for this joint": keep what the interface holds.
++    if (std::isnan(joint_commands_.data[index]))
++    {
++      continue;
++    }
+     if (!command_interfaces_[index].set_value(joint_commands_.data[index]))
+     {
+       RCLCPP_WARN(

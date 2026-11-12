@@ -1,0 +1,30 @@
+diff --git a/forward_command_controller/src/forward_controllers_base.cpp b/forward_command_controller/src/forward_controllers_base.cpp
+index 1d16fdf6..2c63c02e 100644
+--- a/forward_command_controller/src/forward_controllers_base.cpp
++++ b/forward_command_controller/src/forward_controllers_base.cpp
+@@ -189,13 +189,23 @@ controller_interface::return_type ForwardControllersBase::update(
+     return controller_interface::return_type::ERROR;
+   }
+ 
++  // Joints with a NaN entry keep their current command.
++  std::vector<double> commands = joint_commands_.data;
+   for (auto index = 0ul; index < command_interfaces_.size(); ++index)
+   {
+-    if (!command_interfaces_[index].set_value(joint_commands_.data[index]))
++    if (std::isnan(commands[index]))
++    {
++      commands[index] = command_interfaces_[index].get_optional().value_or(commands[index]);
++    }
++  }
++
++  for (auto index = 0ul; index < command_interfaces_.size(); ++index)
++  {
++    if (!command_interfaces_[index].set_value(commands[index]))
+     {
+       RCLCPP_WARN(
+         get_node()->get_logger(), "Unable to set the command interface value %s: value = %f",
+-        command_interfaces_[index].get_name().c_str(), joint_commands_.data[index]);
++        command_interfaces_[index].get_name().c_str(), commands[index]);
+       return controller_interface::return_type::OK;
+     }
+   }

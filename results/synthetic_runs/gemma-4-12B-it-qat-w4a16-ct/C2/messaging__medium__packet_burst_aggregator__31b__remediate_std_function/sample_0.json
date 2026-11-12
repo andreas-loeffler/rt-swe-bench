@@ -1,0 +1,91 @@
+{
+ "id": "messaging__medium__packet_burst_aggregator__31b__remediate_std_function",
+ "kernel": "messaging__medium__packet_burst_aggregator__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 540,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstdint>\n#include <vector>\n#include <algorithm>\n#include <cstring>\n#include <functional>\n\nclass PacketBurstAggregator {\npublic:\n    void configure(size_t max_burst_size) {\n        buffer_.resize(max_burst_size);\n        capacity_ = max_burst_size;\n        offset_ = 0;\n    }\n\n    size_t push(const uint8_t* data, size_t len) {\n        if (data == nullptr || len == 0) return 0;\n        \n        if (offset_ + len > capacity_) {\n            return 0;\n        }\n\n        execute_copy(data, len);\n        return len;\n    }\n\n    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n        if (out_buffer == nullptr || out_capacity == 0) return 0;\n        size_t bytes_to_copy = std::min(offset_, out_capacity);\n        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n        offset_ = 0;\n        return bytes_to_copy;\n    }\n\nprivate:\n    void execute_copy(const uint8_t* src, size_t len) {\n        std::memcpy(&buffer_[offset_], src, len);\n        offset_ += len;\n    }\n\n    std::vector<uint8_t> buffer_;\n    size_t capacity_ = 0;\n    size_t offset_ = 0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 7570,
+  "completion_tokens": 405
+ },
+ "started": 1793818722.1418922,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 580.8,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# PacketBurstAggregator\n     2\t\n     3\tThe `PacketBurstAggregator` collects small incoming data packets into a single large contiguous frame (a \"burst\") to optimize DMA transfers. It manages a fixed-size internal buffer.\n     4\t\n     5\t## Public API\n     6\t\n     7\t- `void configure(size_t max_burst_size)`\n     8\t  Configures the internal buffer capacity. This is called once before any real-time processing. It may allocate memory.\n     9\t\n    10\t- `size_t push(const uint8_t* data, size_t len)`\n    11\t  Appends a packet to the current burst. \n    12\t  - If the packet fits entirely within the remaining space of the `max_burst_size`, it is added and `len` is returned.\n    13\t  - If the packet is larger than the remaining space, it is not added, and `0` is returned (indicating the current burst is effectively \"full\" and must be popped before more data can be added).\n    14\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    15\t\n    16\t- `size_t pop(uint8_t* out_buffer, size_t out_capacity)`\n    17\t  Retrieves the aggregated burst.\n    18\t  - Copies up to `out_capacity` bytes from the internal buffer to `out_buffer`.\n    19\t  - Resets the internal buffer pointer to the start (clearing the burst).\n    20\t  - Returns the number of bytes copied.\n    21\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    22\t\n    23\t## Preconditions\n    24\t- `configure` must be called before `push` or `pop`.\n    25\t- `out_buffer` passed to `pop` must be pre-allocated and large enough to hold the expected data."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-56 of 56)\n     1\t#pragma once\n     2\t#include <cstdint>\n     3\t#include <vector>\n     4\t#include <algorithm>\n     5\t#include <cstring>\n     6\t#include <functional>\n     7\t\n     8\tclass PacketBurstAggregator {\n     9\tpublic:\n    10\t    void configure(size_t max_burst_size) {\n    11\t        buffer_.resize(max_burst_size);\n    12\t        capacity_ = max_burst_size;\n    13\t        offset_ = 0;\n    14\t    }\n    15\t\n    16\t    size_t push(const uint8_t* data, size_t len) {\n    17\t        if (data == nullptr || len == 0) return 0;\n    18\t        \n    19\t        if (offset_ + len > capacity_) {\n    20\t            return 0;\n    21\t        }\n    22\t\n    23\t        execute_copy(data, len);\n    24\t        return len;\n    25\t    }\n    26\t\n    27\t    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n    28\t        if (out_buffer == nullptr || out_capacity == 0) return 0;\n    29\t        size_t bytes_to_copy = std::min(offset_, out_capacity);\n    30\t        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n    31\t        offset_ = 0;\n    32\t        return bytes_to_copy;\n    33\t    }\n    34\t\n    35\tprivate:\n    36\t    void execute_copy(const uint8_t* src, size_t len) {\n    37\t        struct CopyContext {\n    38\t            const uint8_t* src_ptr;\n    39\t            size_t length;\n    40\t            uint8_t* dst_ptr;\n    41\t        };\n    42\t\n    43\t        CopyContext ctx{src, len, &buffer_[offset_]};\n    44\t        \n    45\t        std::function<void()> op = [ctx]() {\n    46\t            std::memcpy(ctx.dst_ptr, ctx.src_ptr, ctx.length);\n    47\t        };\n    48\t\n    49\t        op();\n    50\t        offset_ += len;\n    51\t    }\n    52\t\n    53\t    std::vector<uint8_t> buffer_;\n    54\t    size_t capacity_ = 0;\n    55\t    size_t offset_ = 0;\n    56\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `execute_copy` uses `std::function` and a lambda which, while potentially small, might lead to heap allocations or are generally avoided in hard real-time paths. More importantly, the `std::function` capture might be complex. However, the primary issue is that `std::function` can allocate memory. I will simplify `execute_copy` to use a direct `std::memcpy` call without any functional overhead to ensure it is strictly allocation-free and real-time safe.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void execute_copy(const uint8_t* src, size_t len) {\\n        struct CopyContext {\\n            const uint8_t* src_ptr;\\n            size_t length;\\n            uint8_t* dst_ptr;\\n        };\\n\\n        CopyContext ctx{src, len, &buffer_[offset_]};\\n        \\n        std::function<void()> op = [ctx]() {\\n            std::memcpy(ctx.dst_ptr, ctx.src_ptr, ctx.length);\\n        };\\n\\n        op();\\n        offset_ += len;\\n    }\", \"new\": \"    void execute_copy(const uint8_t* src, size_t len) {\\n        std::memcpy(&buffer_[offset_], src, len);\\n        offset_ += len;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

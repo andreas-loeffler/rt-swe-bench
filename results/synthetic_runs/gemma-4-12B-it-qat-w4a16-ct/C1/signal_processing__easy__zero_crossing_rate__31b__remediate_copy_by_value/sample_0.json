@@ -1,0 +1,99 @@
+{
+ "id": "signal_processing__easy__zero_crossing_rate__31b__remediate_copy_by_value",
+ "kernel": "signal_processing__easy__zero_crossing_rate__31b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "signal_processing",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C1",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 12,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <cmath>\n#include <algorithm>\n\nclass ZeroCrossingRate {\npublic:\n    void configure(size_t window_size) {\n        buffer_.assign(window_size, 0.0f);\n        size_ = window_size;\n        write_pos_ = 0;\n        full_ = false;\n    }\n\n    float push(float sample) {\n        buffer_[write_pos_] = sample;\n        write_pos_ = (write_pos_ + 1) % size_;\n        if (!full_ && write_pos_ == 0) full_ = true;\n\n        size_t available = full_ ? size_ : write_pos_;\n        if (available < 2) return 0.0f;\n\n        size_t count = 0;\n        if (full_) {\n            for (size_t i = 0; i < size_ - 1; ++i) {\n                size_t idx1 = (write_pos_ + i) % size_;\n                size_t idx2 = (write_pos_ + i + 1) % size_;\n                if ((buffer_[idx1] > 0 && buffer_[idx2] < 0) || \n                    (buffer_[idx1] < 0 && buffer_[idx2] > 0)) {\n                    count++;\n                }\n            }\n        } else {\n            for (size_t i = 0; i < write_pos_ - 1; ++i) {\n                if ((buffer_[i] > 0 && buffer_[i + 1] < 0) || \n                    (buffer_[i] < 0 && buffer_[i + 1] > 0)) {\n                    count++;\n                }\n            }\n        }\n\n        return static_cast<float>(count) / static_cast<float>(available - 1);\n    }\n\nprivate:\n    std::vector<float> buffer_;\n    size_t size_ = 0;\n    size_t write_pos_ = 0;\n    bool full_ = false;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 18722,
+  "completion_tokens": 3463
+ },
+ "started": 1793819161.1136518,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1249.9,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-17 of 17)\n     1\t# ZeroCrossingRate Kernel\n     2\t\n     3\t## Description\n     4\tThe `ZeroCrossingRate` kernel computes the number of times a discrete-time signal crosses zero within a sliding window of length `N`. A zero-crossing is defined as occurring when two consecutive samples in the signal have opposite signs.\n     5\t\n     6\t## API\n     7\t- `void configure(size_t window_size)`: Initializes the internal buffer to hold `window_size` samples. Must be called before any call to `push`.\n     8\t- `float push(float sample)`: Pushes a new sample into the sliding window and returns the current Zero Crossing Rate (ZCR).\n     9\t  - ZCR is calculated as: `(number of zero crossings in window) / (window_size - 1)`.\n    10\t  - If the window is not yet full, the ZCR is calculated based on the number of samples currently available.\n    11\t\n    12\t## Preconditions\n    13\t- `configure` must be called with `window_size > 1`.\n    14\t- `push` must be called after `configure`.\n    15\t\n    16\t## Real-time Constraints\n    17\tThe method `push` must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O. All necessary memory must be allocated during the `configure` call."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-52 of 52)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <cmath>\n     4\t#include <algorithm>\n     5\t\n     6\tclass ZeroCrossingRate {\n     7\tpublic:\n     8\t    void configure(size_t window_size) {\n     9\t        buffer_.assign(window_size, 0.0f);\n    10\t        size_ = window_size;\n    11\t        write_pos_ = 0;\n    12\t        full_ = false;\n    13\t    }\n    14\t\n    15\t    float push(float sample) {\n    16\t        buffer_[write_pos_] = sample;\n    17\t        write_pos_ = (write_pos_ + 1) % size_;\n    18\t        if (!full_ && write_pos_ == 0) full_ = true;\n    19\t\n    20\t        size_t available = full_ ? size_ : write_pos_;\n    21\t        if (available < 2) return 0.0f;\n    22\t\n    23\t        std::vector<float> current_window;\n    24\t        if (full_) {\n    25\t            current_window.reserve(size_);\n    26\t            for (size_t i = 0; i < size_; ++i) {\n    27\t                current_window.push_back(buffer_[(write_pos_ + i) % size_]);\n    28\t            }\n    29\t        } else {\n    30\t            current_window.reserve(write_pos_);\n    31\t            for (size_t i = 0; i < write_pos_; ++i) {\n    32\t                current_window.push_back(buffer_[i]);\n    33\t            }\n    34\t        }\n    35\t\n    36\t        size_t count = 0;\n    37\t        for (size_t i = 0; i < current_window.size() - 1; ++i) {\n    38\t            if ((current_window[i] > 0 && current_window[i + 1] < 0) || \n    39\t                (current_window[i] < 0 && current_window[i + 1] > 0)) {\n    40\t                count++;\n    41\t            }\n    42\t        }\n    43\t\n    44\t        return static_cast<float>(count) / static_cast<float>(available - 1);\n    45\t    }\n    46\t\n    47\tprivate:\n    48\t    std::vector<float> buffer_;\n    49\t    size_t size_ = 0;\n    50\t    size_t write_pos_ = 0;\n    51\t    bool full_ = false;\n    52\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe current implementation of `push` allocates memory by creating and resizing a `std::vector` every time a sample is pushed. To make this real-time safe, I need to remove this local vector. Instead, I can iterate directly over the existing `buffer_` using the circular indexing logic.\n\nThe circular buffer layout is: `buffer_` contains `size_` elements. `write_pos_` points to the next slot to be overwritten. The most recent sample is at `(write_pos_ - 1 + size_) % size_`. The oldest sample (when full) is at `write_pos_`.\n\nTo iterate in the correct order (oldest to newest):\n1. If `full_` is true: the sequence starts at `write_pos_` and wraps around to `write_pos_ - 1`.\n2. If `full_` is false: the sequence starts at `0` and goes up to `write_pos_ - 1`.\n\nWait, the current `push` logic:\n- `buffer_[write_pos_] = sample;`\n- `write_pos_ = (write_pos_ + 1) % size_;`\nThis means `write_pos_` always points to the next available slot. \nIf `full_` is false, `write_pos_` is the number of elements currently in the buffer (since `write_pos_` was incremented).\nIf `full_` is true, the oldest element is at `write_pos_`.\n\nLet's re-examine the current `push` code:\n- `buffer_[write_pos_] = sample;`\n- `write_pos_ = (write_pos_ + 1) % size_;`\n- `if (!full_ && write_pos_ == 0) full_ = true;`\nExample: `size_ = 3`.\n- `push(1)`: `buffer_[0]=1`, `write_pos_` becomes 1. `available` = 1.\n- `push(2)`: `buffer_[1]=2`, `write_pos_` becomes 2. `available` = 2.\n- `push(3)`: `buffer_[2]=3`, `write_pos_` becomes 0. `full_` becomes true. `available` = 3.\n- `push(4)`: `buffer_[0]=4`, `write_pos_` becomes 1. `full_` is true. `available` = 3.\n\nSequence of indices for `available = 3` (full): `write_pos_` (which is 1), 2, 0. (Oldest to newest).\nSequence of indices for `available = 2` (not full): 0, 1.\n\nWait, in the \"not full\" case:\n- `push(1)`: `write_pos_` was 0, now 1. `available` = 1.\n- `push(2)`: `write_pos_` was 1, now 2. `available` = 2.\nIndices for `available = 2`: 0, 1.\n\nSo the logic is:\nIf `full_` is true: start at `write_pos_`, go `size_` steps with `(i + 1) % size_`.\nIf `full_` is false: start at 0, go `write_pos_` steps.\n\nActually, looking at the original code:\n`current_window.push_back(buffer_[(write_pos_ + i) % size_]);` (for full)\n`current_window.push_back(buffer_[i]);` (for not full)\nWait, if `full_` is true and `write_pos_` is 1:\n`i=0`: `buffer_[(1+0)%3]` -> `buffer_[1]`\n`i=1`: `buffer_[(1+1)%3]` -> `buffer_[2]`\n`i=2`: `buffer_[(1+2)%3]` -> `buffer_[0]`\nIs `buffer_[1]` the oldest?\nLet's trace:\n- `push(1)`: `buffer_[0]=1`, `write_pos_=1`.\n- `push(2)`: `buffer_[1]=2`, `write_pos_=2`.\n- `push(3)`: `buffer_[2]=3`, `write_pos_=0`, `full_=true`.\n- `push(4)`: `buffer_[0]=4`, `write_pos_=1`.\nAt this point (pushing 4), the buffer is `[4, 2, 3]`. `write_pos_` is 1.\nThe sequence of inputs was `1, 2, 3, 4`.\nThe window should be `2, 3, 4`.\nIndex of 2 is 1.\nIndex of 3 is 2.\nIndex of 4 is 0.\nThe original code's logic for `full_` was `(write_pos_ + i) % size_`.\nFor `write_pos_ = 1`:\n`i=0`: 1\n`i=1`: 2\n`i=2`: 0\nThis matches the sequence `2, 3, 4`.\n\nSo the loop can be:\nIf `full_`:\n  for `i` from 0 to `size_ - 2`:\n    `idx1 = (write_pos_ + i) % size_`\n    `idx2 = (write_pos_ + i + 1) % size_`\n    if cross(buffer_[idx1], buffer_[idx2]) count++\nElse:\n  for `i` from 0 to `write_pos_ - 2`:\n    `idx1 = i`\n    `idx2 = i + 1`\n    if cross(buffer_[idx1], buffer_[idx2]) count++\n\nThis avoids the `std::vector`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::vector<float> current_window;\\n        if (full_) {\\n            current_window.reserve(size_);\\n            for (size_t i = 0; i < size_; ++i) {\\n                current_window.push_back(buffer_[(write_pos_ + i) % size_]);\\n            }\\n        } else {\\n            current_window.reserve(write_pos_);\\n            for (size_t i = 0; i < write_pos_; ++i) {\\n                current_window.push_back(buffer_[i]);\\n            }\\n        }\\n\\n        size_t count = 0;\\n        for (size_t i = 0; i < current_window.size() - 1; ++i) {\\n            if ((current_window[i] > 0 && current_window[i + 1] < 0) || \\n                (current_window[i] < 0 && current_window[i + 1] > 0)) {\\n                count++;\\n            }\\n        }\\n\\n        return static_cast<float>(count) / static_cast<float>(available - 1);\", \"new\": \"        size_t count = 0;\\n        if (full_) {\\n            for (size_t i = 0; i < size_ - 1; ++i) {\\n                size_t idx1 = (write_pos_ + i) % size_\\n                size_t idx2 = (write_pos_ + i + 1) % size_\\n                if ((buffer_[idx1] > 0 && buffer_[idx2] < 0) || \\n                    (buffer_[idx1] < 0 && buffer_[idx2] > 0)) {\\n                    count++;\\n                }\\n            }\\n        } else {\\n            for (size_t i = 0; i < write_pos_ - 1; ++i) {\\n                if ((buffer_[i] > 0 && buffer_[i + 1] < 0) || \\n                    (buffer_[i] < 0 && buffer_[i + 1] > 0)) {\\n                    count++;\\n                }\\n            }\\n        }\\n\\n        return static_cast<float>(count) / static_cast<float>(available - 1);\"}}\n```\n\nWait, I need to be careful with the `edit` tool's exact text. I should check the spacing.\nThe original code's `push` method:\n```cpp\n    float push(float sample) {\n        buffer_[write_pos_] = sample;\n        write_pos_ = (write_pos_ + 1) % size_;\n        if (!full_ && write_pos_ == 0) full_ = true;\n\n        size_t available = full_ ? size_ : write_pos_;\n        if (available < 2) return 0.0f;\n\n        std::vector<float> current_window;\n        if (full_) {\n            current_window.reserve(size_);\n            for (size_t i = 0; i < size_; ++i) {\n                current_window.push_back(buffer_[(write_pos_ + i) % size_]);\n            }\n        } else {\n            current_window.reserve(write_pos_);\n            for (size_t i = 0; i < write_pos_; ++i) {\n                current_window.push_back(buffer_[i]);\n            }\n        }\n\n        size_t count = 0;\n        for (size_t i = 0; i < current_window.size() - 1; ++i) {\n            if ((current_window[i] > 0 && current_window[i + 1] < 0) || \n                (current_window[i] < 0 && current_window[i + 1] > 0)) {\n                count++;\n            }\n        }\n\n        return static_cast<float>(count) / static_cast<float>(available - 1);\n    }\n```\nThe code to replace starts at line 23 and ends at line 44.\n\nLet's verify the `available < 2` case:\nIf `write_pos_` is 1 and `full_` is false, `available` is 1. Returns 0.0f. Correct.\nIf `write_pos_` is 2 and `full_` is false, `available` is 2. Loop `i` from 0 to 2-2=0. `i=0`: `buffer[0]` vs `buffer[1]`. Correct.\nIf `full_` is true and `size_` is 3, `available` is 3. Loop `i` from 0 to 3-2=1. `i=0`: `idx1=write_pos_`, `idx2=write_pos_+1`. `i=1`: `idx1=write_pos_+1`, `idx2=write_pos_+2`. Correct.\n\nWait, there's a slight mismatch in the `else` block:\nIn the original code:\n```cpp\n        } else {\n            current_window.reserve(write_pos_);\n            for (size_t i = 0; i < write_pos_; ++i) {\n                current_window.push_back(buffer_[i]);\n            }\n        }\n```\nIf `write_pos_` is 2, `current_window` gets `buffer_[0]` and `buffer_[1]`.\nThe new loop `for (size_t i = 0; i < write_pos_ - 1; ++i)`:\nIf `write_pos_` is 2, `i` goes 0. `buffer_[0]` vs `buffer_[1]`. Correct.\n\nI will perform the edit now. I'll make sure the indentation matches.\n\nThe `edit` tool requires an exact match. I'll see the exact lines first.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 23, \"end\": 44}}\n```thought\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 23, \"end\": 44}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 23-44 of 52)\n    23\t        std::vector<float> current_window;\n    24\t        if (full_) {\n    25\t            current_window.reserve(size_);\n    26\t            for (size_t i = 0; i < size_; ++i) {\n    27\t                current_window.push_back(buffer_[(write_pos_ + i) % size_]);\n    28\t            }\n    29\t        } else {\n    30\t            current_window.reserve(write_pos_);\n    31\t            for (size_t i = 0; i < write_pos_; ++i) {\n    32\t                current_window.push_back(buffer_[i]);\n    33\t            }\n    34\t        }\n    35\t\n    36\t        size_t count = 0;\n    37\t        for (size_t i = 0; i < current_window.size() - 1; ++i) {\n    38\t            if ((current_window[i] > 0 && current_window[i + 1] < 0) || \n    39\t                (current_window[i] < 0 && current_window[i + 1] > 0)) {\n    40\t                count++;\n    41\t            }\n    42\t        }\n    43\t\n    44\t        return static_cast<float>(count) / static_cast<float>(available - 1);"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        std::vector<float> current_window;\\n        if (full_) {\\n            current_window.reserve(size_);\\n            for (size_t i = 0; i < size_; ++i) {\\n                current_window.push_back(buffer_[(write_pos_ + i) % size_]);\\n            }\\n        } else {\\n            current_window.reserve(write_pos_);\\n            for (size_t i = 0; i < write_pos_; ++i) {\\n                current_window.push_back(buffer_[i]);\\n            }\\n        }\\n\\n        size_t count = 0;\\n        for (size_t i = 0; i < current_window.size() - 1; ++i) {\\n            if ((current_window[i] > 0 && current_window[i + 1] < 0) || \\n                (current_window[i] < 0 && current_window[i + 1] > 0)) {\\n                count++;\\n            }\\n        }\\n\\n        return static_cast<float>(count) / static_cast<float>(available - 1);\", \"new\": \"        size_t count = 0;\\n        if (full_) {\\n            for (size_t i = 0; i < size_ - 1; ++i) {\\n                size_t idx1 = (write_pos_ + i) % size_;\\n                size_t idx2 = (write_pos_ + i + 1) % size_;\\n                if ((buffer_[idx1] > 0 && buffer_[idx2] < 0) || \\n                    (buffer_[idx1] < 0 && buffer_[idx2] > 0)) {\\n                    count++;\\n                }\\n            }\\n        } else {\\n            for (size_t i = 0; i < write_pos_ - 1; ++i) {\\n                if ((buffer_[i] > 0 && buffer_[i + 1] < 0) || \\n                    (buffer_[i] < 0 && buffer_[i + 1] > 0)) {\\n                    count++;\\n                }\\n            }\\n        }\\n\\n        return static_cast<float>(count) / static_cast<float>(available - 1);\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

@@ -1,0 +1,99 @@
+{
+ "id": "messaging__medium__packet_burst_aggregator__31b__remediate_container_growth",
+ "kernel": "messaging__medium__packet_burst_aggregator__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "messaging",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 6,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 540,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <cstdint>\n#include <vector>\n#include <algorithm>\n#include <cstring>\n\nclass PacketBurstAggregator {\npublic:\n    void configure(size_t max_burst_size) {\n        capacity_ = max_burst_size;\n        offset_ = 0;\n        buffer_.assign(capacity_, 0);\n    }\n\n    size_t push(const uint8_t* data, size_t len) {\n        if (data == nullptr || len == 0) return 0;\n        if (offset_ + len > capacity_) {\n            return 0;\n        }\n        \n        std::memcpy(buffer_.data() + offset_, data, len);\n        offset_ += len;\n        return len;\n    }\n\n    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n        if (out_buffer == nullptr || out_capacity == 0) return 0;\n        size_t bytes_to_copy = std::min(offset_, out_capacity);\n        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n        \n        offset_ = 0;\n        return bytes_to_copy;\n    }\n\nprivate:\n    std::vector<uint8_t> buffer_;\n    size_t capacity_ = 0;\n    size_t offset_ = 0;\n};\n"
+  }
+ ],
+ "steps": 6,
+ "usage": {
+  "prompt_tokens": 10020,
+  "completion_tokens": 893
+ },
+ "started": 1793815649.7559357,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 668.1,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-25 of 25)\n     1\t# PacketBurstAggregator\n     2\t\n     3\tThe `PacketBurstAggregator` collects small incoming data packets into a single large contiguous frame (a \"burst\") to optimize DMA transfers. It manages a fixed-size internal buffer.\n     4\t\n     5\t## Public API\n     6\t\n     7\t- `void configure(size_t max_burst_size)`\n     8\t  Configures the internal buffer capacity. This is called once before any real-time processing. It may allocate memory.\n     9\t\n    10\t- `size_t push(const uint8_t* data, size_t len)`\n    11\t  Appends a packet to the current burst. \n    12\t  - If the packet fits entirely within the remaining space of the `max_burst_size`, it is added and `len` is returned.\n    13\t  - If the packet is larger than the remaining space, it is not added, and `0` is returned (indicating the current burst is effectively \"full\" and must be popped before more data can be added).\n    14\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    15\t\n    16\t- `size_t pop(uint8_t* out_buffer, size_t out_capacity)`\n    17\t  Retrieves the aggregated burst.\n    18\t  - Copies up to `out_capacity` bytes from the internal buffer to `out_buffer`.\n    19\t  - Resets the internal buffer pointer to the start (clearing the burst).\n    20\t  - Returns the number of bytes copied.\n    21\t  - **Real-time constraint**: Must not allocate, throw, lock, or perform I/O.\n    22\t\n    23\t## Preconditions\n    24\t- `configure` must be called before `push` or `pop`.\n    25\t- `out_buffer` passed to `pop` must be pre-allocated and large enough to hold the expected data."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1, \"end\": 100}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-44 of 44)\n     1\t#pragma once\n     2\t#include <cstdint>\n     3\t#include <vector>\n     4\t#include <algorithm>\n     5\t#include <cstring>\n     6\t\n     7\tclass PacketBurstAggregator {\n     8\tpublic:\n     9\t    void configure(size_t max_burst_size) {\n    10\t        capacity_ = max_burst_size;\n    11\t        offset_ = 0;\n    12\t        buffer_.clear();\n    13\t    }\n    14\t\n    15\t    size_t push(const uint8_t* data, size_t len) {\n    16\t        if (data == nullptr || len == 0) return 0;\n    17\t        if (offset_ + len > capacity_) {\n    18\t            return 0;\n    19\t        }\n    20\t        \n    21\t        append_to_buffer(data, len);\n    22\t        offset_ += len;\n    23\t        return len;\n    24\t    }\n    25\t\n    26\t    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\n    27\t        if (out_buffer == nullptr || out_capacity == 0) return 0;\n    28\t        size_t bytes_to_copy = std::min(offset_, out_capacity);\n    29\t        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\n    30\t        \n    31\t        offset_ = 0;\n    32\t        buffer_.clear();\n    33\t        return bytes_to_copy;\n    34\t    }\n    35\t\n    36\tprivate:\n    37\t    void append_to_buffer(const uint8_t* data, size_t len) {\n    38\t        buffer_.insert(buffer_.end(), data, data + len);\n    39\t    }\n    40\t\n    41\t    std::vector<uint8_t> buffer_;\n    42\t    size_t capacity_ = 0;\n    43\t    size_t offset_ = 0;\n    44\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe current implementation uses `std::vector::clear()` and `std::vector::insert()`. While `clear()` doesn't usually deallocate capacity, `insert()` can trigger reallocations if the vector's size exceeds its current capacity. To make this real-time safe, I need to pre-allocate the buffer in `configure` and manage a manual pointer/offset into that fixed buffer.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.clear();\\n    }\", \"new\": \"    void configure(size_t max_burst_size) {\\n        capacity_ = max_burst_size;\\n        offset_ = 0;\\n        buffer_.assign(capacity_, 0);\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t push(const uint8_t* data, size_t len) {\\n        if (data == nullptr || len == 0) return 0;\\n        if (offset_ + len > capacity_) {\\n            return 0;\\n        }\\n        \\n        append_to_buffer(data, len);\\n        offset_ += len;\\n        return len;\\n    }\\n\\n    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\\n        if (out_buffer == nullptr || out_capacity == 0) return 0;\\n        size_t bytes_to_copy = std::min(offset_, out_capacity);\\n        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\\n        \\n        offset_ = 0;\\n        buffer_.clear();\\n        return bytes_to_copy;\\n    }\\n\\nprivate:\\n    void append_to_buffer(const uint8_t* data, size_t len) {\\n        buffer_.insert(buffer_.end(), data, data + len);\\n    }\\n\\n    std::vector<uint8_t> buffer_;\\n    size_t capacity_ = 0;\\n    size_t offset_ = 0;\\n};\", \"new\": \"    size_t push(const uint8_t* data, size_t len) {\\n        if (data == nullptr || len == 0) return 0;\\n        if (offset_ + len > capacity_) {\\n            return 0;\\n        }\\n        \\n        std::memcpy(buffer_.data() + offset_, data, len);\\n        offset_ += len;\\n        return len;\\n    }\\n\\n    size_t pop(uint8_t* out_buffer, size_t out_capacity) {\\n        if (out_buffer == nullptr || out_capacity == 0) return 0;\\n        size_t bytes_to_copy = std::min(offset_, out_capacity);\\n        std::memcpy(out_buffer, buffer_.data(), bytes_to_copy);\\n        \\n        offset_ = 0;\\n        return bytes_to_copy;\\n    }\\n\\nprivate:\\n    std::vector<uint8_t> buffer_;\\n    size_t capacity_ = 0;\\n    size_t offset_ = 0;\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nthought\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

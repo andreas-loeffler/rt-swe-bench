@@ -1,0 +1,110 @@
+{
+ "id": "control__medium__slew_rate_limiter__31b",
+ "idea": {
+  "domain": "control",
+  "level": "medium",
+  "name": "slew_rate_limiter",
+  "class": "SlewLimiter",
+  "summary": "Limits the maximum rate of change of a signal per cycle to prevent actuator saturation or audio pops.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 800,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 800,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 5,
+   "compiled": 5,
+   "killed": 4,
+   "kill_rate": 0.8,
+   "survivors": [
+    "line 17: < -> <="
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 800,
+     "allocating_cycles": 700,
+     "allocs": 700,
+     "bytes": 22400,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 700
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 800,
+     "allocating_cycles": 700,
+     "allocs": 700,
+     "bytes": 11200,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 700
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

@@ -1,0 +1,127 @@
+{
+ "id": "messaging__medium__fixed_capacity_command_queue__31b",
+ "idea": {
+  "domain": "messaging",
+  "level": "medium",
+  "name": "fixed_capacity_command_queue",
+  "class": "FixedCapacityCommandQueue",
+  "summary": "Manages a lock-free FIFO queue of command packets with saturation handling for overflow.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 16,
+   "compiled": 16,
+   "killed": 16,
+   "kill_rate": 1.0,
+   "survivors": []
+  },
+  "G3": {
+   "copy_by_value.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 1016,
+     "allocs": 1016,
+     "bytes": 8128,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1016
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 2050,
+     "allocating_cycles": 1031,
+     "allocs": 1125,
+     "bytes": 12968,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1125
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "copy_by_value.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G2: kill rate 0.70 of 20 compiling mutants",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  },
+  {
+   "round": 2,
+   "after": "G1: reference_2.hpp F=0 R=1",
+   "by": "12b",
+   "files": [
+    "reference_2.hpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 2,
+ "test_include_normalized": true
+}

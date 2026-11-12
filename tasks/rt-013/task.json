@@ -1,0 +1,14 @@
+{
+  "id": "rt-013",
+  "track": 2,
+  "source": "census: open upstream violation (jazzy @ d71703b)",
+  "package": "gpio_controllers",
+  "probe": "task_rt_013_gpio",
+  "issue": "issue.md",
+  "files": [
+    "gpio_controllers/src/gpio_command_controller.cpp",
+    "gpio_controllers/include/gpio_controllers/gpio_command_controller.hpp"
+  ],
+  "warmup_cycles": 3,
+  "notes": "Two sources: the value-returning try_get() copy, and a new '<group>/<interface>' std::string per interface and cycle. The naive patch fixes only the copy."
+}

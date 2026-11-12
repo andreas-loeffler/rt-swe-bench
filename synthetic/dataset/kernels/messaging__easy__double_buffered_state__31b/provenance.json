@@ -1,0 +1,110 @@
+{
+ "id": "messaging__easy__double_buffered_state__31b",
+ "idea": {
+  "domain": "messaging",
+  "level": "easy",
+  "name": "double_buffered_state",
+  "class": "DoubleBufferedState",
+  "summary": "Swaps between a write-buffer and read-buffer to provide atomic state snapshots.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 4000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 4000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 8,
+   "compiled": 8,
+   "killed": 7,
+   "kill_rate": 0.875,
+   "survivors": [
+    "line 21: 1 -> 2"
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 4000,
+     "allocating_cycles": 1000,
+     "allocs": 2000,
+     "bytes": 104000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 2000
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 4000,
+     "allocating_cycles": 1000,
+     "allocs": 1000,
+     "bytes": 24000,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 1000
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "std_function.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

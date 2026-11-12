@@ -1,0 +1,23 @@
+diff --git a/forward_command_controller/src/forward_controllers_base.cpp b/forward_command_controller/src/forward_controllers_base.cpp
+index 1d16fdf6..2b16acb7 100644
+--- a/forward_command_controller/src/forward_controllers_base.cpp
++++ b/forward_command_controller/src/forward_controllers_base.cpp
+@@ -191,11 +191,16 @@ controller_interface::return_type ForwardControllersBase::update(
+ 
+   for (auto index = 0ul; index < command_interfaces_.size(); ++index)
+   {
+-    if (!command_interfaces_[index].set_value(joint_commands_.data[index]))
++    // The interfaces may be assigned in any order: find the one for this joint.
++    const std::string name = command_interface_types_[index];
++    auto it = std::find_if(
++      command_interfaces_.begin(), command_interfaces_.end(),
++      [&name](const auto & ci) { return ci.get_name() == name; });
++    if (it == command_interfaces_.end() || !it->set_value(joint_commands_.data[index]))
+     {
+       RCLCPP_WARN(
+         get_node()->get_logger(), "Unable to set the command interface value %s: value = %f",
+-        command_interfaces_[index].get_name().c_str(), joint_commands_.data[index]);
++        name.c_str(), joint_commands_.data[index]);
+       return controller_interface::return_type::OK;
+     }
+   }

@@ -1,0 +1,21 @@
+diff --git a/pid_controller/src/pid_controller.cpp b/pid_controller/src/pid_controller.cpp
+index fb9431b2..c68a3e54 100644
+--- a/pid_controller/src/pid_controller.cpp
++++ b/pid_controller/src/pid_controller.cpp
+@@ -523,11 +523,11 @@ controller_interface::CallbackReturn PidController::on_deactivate(
+ controller_interface::return_type PidController::update_reference_from_subscribers(
+   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
+ {
+-  auto current_ref_op = input_ref_.try_get();
+-  if (current_ref_op.has_value())
+-  {
+-    current_ref_ = current_ref_op.value();
+-  }
++  // Copy into current_ref_, which on_configure() sized for every DoF, so the
++  // assignment reuses its storage. The value-returning try_get() would copy the
++  // whole message, and allocate, on every cycle. The callback captures only
++  // `this`, so std::function stores it inline.
++  input_ref_.try_get([this](const ControllerReferenceMsg & msg) { current_ref_ = msg; });
+ 
+   for (size_t i = 0; i < dof_; ++i)
+   {

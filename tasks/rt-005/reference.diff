@@ -1,0 +1,142 @@
+diff --git a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/odometry.hpp b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/odometry.hpp
+index e5226625..0044bdc5 100644
+--- a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/odometry.hpp
++++ b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/odometry.hpp
+@@ -67,6 +67,12 @@ private:
+   double wheel_radius_;  // [m]
+   double wheel_offset_;  // [rads]
+ 
++  // Pseudo-inverse of the wheel matrix, computed once in setParams(): the matrix
++  // only depends on the geometry, so update() needs a single fixed-size product.
++  Eigen::Matrix<double, 3, Eigen::Dynamic> wheels_to_body_;
++  // Wheel velocities estimated from positions, sized in setParams() [rads/s]:
++  std::vector<double> wheels_vel_;
++
+   // Previous wheel positions/states [rads]:
+   std::vector<double> wheels_old_pos_;
+ };
+diff --git a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+index 3e82b807..1a29b0bf 100644
+--- a/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
++++ b/omni_wheel_drive_controller/include/omni_wheel_drive_controller/omni_wheel_drive_controller.hpp
+@@ -100,6 +100,7 @@ protected:
+   nav_msgs::msg::Odometry odometry_message_;
+ 
+   Odometry odometry_;
++  std::vector<double> wheels_feedback_;  // [rads], sized in on_configure()
+ 
+   std::shared_ptr<rclcpp::Publisher<tf2_msgs::msg::TFMessage>> odometry_transform_publisher_ =
+     nullptr;
+diff --git a/omni_wheel_drive_controller/src/odometry.cpp b/omni_wheel_drive_controller/src/odometry.cpp
+index 0ec266a6..8985969e 100644
+--- a/omni_wheel_drive_controller/src/odometry.cpp
++++ b/omni_wheel_drive_controller/src/odometry.cpp
+@@ -44,14 +44,13 @@ bool Odometry::updateFromPos(const std::vector<double> & wheels_pos, const rclcp
+   }
+ 
+   // Estimate angular velocity of wheels using old and current position [rads/s]:
+-  std::vector<double> wheels_vel(wheels_pos.size());
+   for (size_t i = 0; i < static_cast<size_t>(wheels_pos.size()); ++i)
+   {
+-    wheels_vel[i] = (wheels_pos[i] - wheels_old_pos_[i]) / dt;
++    wheels_vel_[i] = (wheels_pos[i] - wheels_old_pos_[i]) / dt;
+     wheels_old_pos_[i] = wheels_pos[i];
+   }
+ 
+-  if (updateFromVel(wheels_vel, time))
++  if (updateFromVel(wheels_vel_, time))
+   {
+     return true;
+   }
+@@ -79,26 +78,11 @@ bool Odometry::updateFromVel(const std::vector<double> & wheels_vel, const rclcp
+ 
+ Eigen::Vector3d Odometry::compute_robot_velocity(const std::vector<double> & wheels_vel) const
+ {
+-  Eigen::MatrixXd A(wheels_vel.size(), 3);   // Transformation Matrix
+-  Eigen::VectorXd omega(wheels_vel.size());  // Wheel angular velocities vector
+-
+-  const double angle_bw_wheels = (2 * M_PI) / static_cast<double>(wheels_vel.size());
+-
+-  for (size_t i = 0; i < wheels_vel.size(); ++i)
+-  {
+-    // Define the transformation matrix
+-    const double theta = (angle_bw_wheels * static_cast<double>(i)) + wheel_offset_;
+-    A(static_cast<int>(i), 0) = std::sin(theta);
+-    A(static_cast<int>(i), 1) = -std::cos(theta);
+-    A(static_cast<int>(i), 2) = -robot_radius_;
+-
+-    // Define the wheel angular velocities vector
+-    omega(static_cast<int>(i)) = wheels_vel[i];
+-  }
+-
+-  // Compute the robot velocities using SVD decomposition
+-  const Eigen::Vector3d V =
+-    A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(omega * wheel_radius_);
++  // Least-squares solution through the pseudo-inverse from setParams(). The
++  // product has three rows at compile time, so it is evaluated on the stack.
++  const Eigen::Map<const Eigen::VectorXd> omega(
++    wheels_vel.data(), static_cast<Eigen::Index>(wheels_vel.size()));
++  const Eigen::Vector3d V = (wheels_to_body_ * omega) * wheel_radius_;
+ 
+   return V;
+ }
+@@ -137,6 +121,20 @@ void Odometry::setParams(
+   wheel_radius_ = wheel_radius;
+   wheel_offset_ = wheel_offset;
+   wheels_old_pos_.resize(wheel_count, 0.0);
++  wheels_vel_.assign(wheel_count, 0.0);
++
++  // Transformation matrix (one row per wheel) and its pseudo-inverse.
++  Eigen::MatrixXd A(static_cast<Eigen::Index>(wheel_count), 3);
++  const double angle_bw_wheels = (2 * M_PI) / static_cast<double>(wheel_count);
++  for (size_t i = 0; i < wheel_count; ++i)
++  {
++    const double theta = (angle_bw_wheels * static_cast<double>(i)) + wheel_offset_;
++    A(static_cast<Eigen::Index>(i), 0) = std::sin(theta);
++    A(static_cast<Eigen::Index>(i), 1) = -std::cos(theta);
++    A(static_cast<Eigen::Index>(i), 2) = -robot_radius_;
++  }
++  wheels_to_body_ = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV)
++                      .solve(Eigen::MatrixXd::Identity(A.rows(), A.rows()));
+ }
+ 
+ void Odometry::integrate(const double & dx, const double & dy, const double & dheading)
+diff --git a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+index 23925c77..6cae064c 100644
+--- a/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
++++ b/omni_wheel_drive_controller/src/omni_wheel_drive_controller.cpp
+@@ -79,6 +79,7 @@ controller_interface::CallbackReturn OmniWheelDriveController::on_configure(
+ 
+   odometry_.setParams(
+     params_.robot_radius, params_.wheel_radius, params_.wheel_offset, params_.wheel_names.size());
++  wheels_feedback_.assign(params_.wheel_names.size(), 0.0);
+ 
+   cmd_vel_timeout_ = rclcpp::Duration::from_seconds(params_.cmd_vel_timeout);
+ 
+@@ -309,7 +310,6 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+   }
+   else
+   {
+-    std::vector<double> wheels_feedback(registered_wheel_handles_.size());  // [rads]
+     for (size_t i = 0; i < static_cast<size_t>(registered_wheel_handles_.size()); ++i)
+     {
+       // Get wheel feedback
+@@ -328,15 +328,15 @@ controller_interface::return_type OmniWheelDriveController::update_and_write_com
+         return controller_interface::return_type::ERROR;
+       }
+ 
+-      wheels_feedback[i] = wheel_feedback;
++      wheels_feedback_[i] = wheel_feedback;
+     }
+     if (params_.position_feedback)
+     {
+-      odometry_updated = odometry_.updateFromPos(wheels_feedback, time);
++      odometry_updated = odometry_.updateFromPos(wheels_feedback_, time);
+     }
+     else
+     {
+-      odometry_updated = odometry_.updateFromVel(wheels_feedback, time);
++      odometry_updated = odometry_.updateFromVel(wheels_feedback_, time);
+     }
+   }
+ 

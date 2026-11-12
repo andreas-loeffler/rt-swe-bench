@@ -1,0 +1,115 @@
+{
+ "id": "data_structures__easy__sorted_window__12b__remediate_shared_ptr",
+ "kernel": "data_structures__easy__sorted_window__12b",
+ "kind": "remediate",
+ "level": "easy",
+ "domain": "data_structures",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 8,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1000,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <vector>\n#include <algorithm>\n#include <stdexcept>\n#include <memory>\n\nclass SortedWindow {\npublic:\n    void configure(size_t capacity) {\n        capacity_ = capacity;\n        buffer_.clear();\n        buffer_.reserve(capacity);\n        insertion_order_.assign(capacity, 0.0);\n        head_ = 0;\n        count_ = 0;\n    }\n\n    double process(double value) {\n        if (count_ < capacity_) {\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), value);\n            buffer_.insert(it, value);\n            insertion_order_[head_] = value;\n            head_ = (head_ + 1) % capacity_;\n            count_++;\n        } else {\n            double oldest = insertion_order_[head_];\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), oldest);\n            buffer_.erase(it);\n            \n            auto it_new = std::lower_bound(buffer_.begin(), buffer_.end(), value);\n            buffer_.insert(it_new, value);\n            insertion_order_[head_] = value;\n            head_ = (head_ + 1) % capacity_;\n        }\n\n        size_t n = buffer_.size();\n        if (n % 2 == 1) {\n            return buffer_[n / 2];\n        } else {\n            return (buffer_[n / 2 - 1] + buffer_[n / 2]) / 2.0;\n        }\n    }\n\nprivate:\n    size_t capacity_;\n    size_t head_ = 0;\n    size_t count_ = 0;\n    std::vector<double> buffer_;\n    std::vector<double> insertion_order_;\n};\n"
+  }
+ ],
+ "steps": 8,
+ "usage": {
+  "prompt_tokens": 17556,
+  "completion_tokens": 1838
+ },
+ "started": 1793815666.4700694,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1042.5,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I will start by examining the specification and the current implementation to identify where heap allocations are occurring in the real-time path.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-23 of 23)\n     1\t# SortedWindow\n     2\t\n     3\tMaintains a fixed-size sorted collection of the most recent values. This is used for calculating rolling medians or other order statistics in real-time.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t capacity)`\n     8\tInitializes the internal buffer to a fixed size.\n     9\t- **Preconditions**: `capacity > 0`.\n    10\t- **Note**: May allocate memory.\n    11\t\n    12\t### `double process(double value)`\n    13\tAdds a new value to the window (evicting the oldest if full) and returns the current median of the window.\n    14\t- **Preconditions**: `configure` must be called with `capacity > 0`.\n    15\t- **Real-time**: This method must not allocate, lock, or perform I/O.\n    16\t\n    17\t## Behavior\n    18\t1. If the window is not yet full, the new value is inserted into its sorted position.\n    19\t2. If the window is full, the oldest value (the one added first) is removed, and the new value is inserted into the sorted position.\n    20\t3. The median is calculated as:\n    21\t   - The middle element for odd-sized windows.\n    22\t   - The average of the two middle elements for even-sized windows.\n    23\t4. The implementation must maintain the sorted order of elements in the buffer at all times."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation of `kernel.hpp` to identify the allocations in the `process` method.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-49 of 49)\n     1\t#pragma once\n     2\t#include <vector>\n     3\t#include <algorithm>\n     4\t#include <stdexcept>\n     5\t#include <memory>\n     6\t\n     7\tclass SortedWindow {\n     8\tpublic:\n     9\t    void configure(size_t capacity) {\n    10\t        capacity_ = capacity;\n    11\t        buffer_.reserve(capacity);\n    12\t        buffer_.clear();\n    13\t        insertion_order_.reserve(capacity);\n    14\t    }\n    15\t\n    16\t    double process(double value) {\n    17\t        if (buffer_.size() < capacity_) {\n    18\t            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), value);\n    19\t            buffer_.insert(it, value);\n    20\t            insertion_order_.push_back(value);\n    21\t        } else {\n    22\t            double oldest = insertion_order_.front();\n    23\t            insertion_order_.erase(insertion_order_.begin());\n    24\t            \n    25\t            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), oldest);\n    26\t            if (it != buffer_.end() && *it == oldest) buffer_.erase(it);\n    27\t            \n    28\t            auto it_new = std::lower_bound(buffer_.begin(), buffer_.end(), value);\n    29\t            buffer_.insert(it_new, value);\n    30\t            insertion_order_.push_back(value);\n    31\t        }\n    32\t\n    33\t        // Use a dynamic container for result calculation to handle intermediate steps\n    34\t        auto result_data = std::make_shared<std::vector<double>>();\n    35\t        result_data->assign(buffer_.begin(), buffer_.end());\n    36\t        \n    37\t        size_t n = result_data->size();\n    38\t        if (n % 2 == 1) {\n    39\t            return (*result_data)[n / 2];\n    40\t        } else {\n    41\t            return ((*result_data)[n / 2 - 1] + (*result_data)[n / 2]) / 2.0;\n    42\t        }\n    43\t    }\n    44\t\n    45\tprivate:\n    46\t    size_t capacity_;\n    47\t    std::vector<double> buffer_;\n    48\t    std::vector<double> insertion_order_;\n    49\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The current implementation of `process` has several issues violating the real-time constraints:\n1. `buffer_.insert` and `buffer_.erase` on a `std::vector` cause element shifts, but more importantly, `insertion_order_.push_back` and `insertion_order_.erase(begin())` can trigger reallocations or expensive shifts.\n2. `insertion_order_.erase(insertion_order_.begin())` is $O(N)$ and inefficient.\n3. Lines 34-35 allocate a `std::shared_ptr<std::vector<double>>` on every call to `process`, which is a direct violation of the \"no heap allocation\" rule.\n4. The median calculation can be done directly on `buffer_` without copying.\n\nTo fix this:\n1. I will change `insertion_order_` to a fixed-size buffer used as a circular queue to avoid $O(N)$ erasures and potential reallocations.\n2. I will use `std::vector::erase` and `std::vector::insert` for `buffer_` because although they shift elements, they don't allocate once the vector is reserved to `capacity_` and we only keep up to `capacity_` elements. Wait, `std::vector::insert` can reallocate if size exceeds capacity. Since we ensure `size <= capacity_` and we `reserve(capacity)`, it shouldn't reallocate, but we must be careful about the order of erase and insert when full.\n3. I will remove the `std::make_shared<std::vector<double>>` and calculate the median directly from `buffer_`.\n\nFirst, let's update `configure` to properly initialize the containers to avoid any growth during `process`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t capacity) {\\n        capacity_ = capacity;\\n        buffer_.reserve(capacity);\\n        buffer_.clear();\\n        insertion_order_.reserve(capacity);\\n    }\", \"new\": \"    void configure(size_t capacity) {\\n        capacity_ = capacity;\\n        buffer_.clear();\\n        buffer_.reserve(capacity);\\n        insertion_order_.assign(capacity, 0.0);\\n        head_ = 0;\\n        count_ = 0;\\n    }\"}}\n```\n\nWait, I need to add `head_` and `count_` to the private members. I'll do that in a separate step. Let me first see the members.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 45, \"end\": 49}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 45-49 of 49)\n    45\tprivate:\n    46\t    size_t capacity_;\n    47\t    std::vector<double> buffer_;\n    48\t    std::vector<double> insertion_order_;\n    49\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will add the necessary member variables to support a circular buffer for the insertion order and then update the `process` method to be allocation-free.\n\nFirst, adding the private members.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    size_t capacity_;\\n    std::vector<double> buffer_;\\n    std::vector<double> insertion_order_;\", \"new\": \"    size_t capacity_;\\n    size_t head_ = 0;\\n    size_t count_ = 0;\\n    std::vector<double> buffer_;\\n    std::vector<double> insertion_order_;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will update the `configure` method to initialize the circular buffer and the `process` method to remove all heap allocations and use the circular buffer.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void configure(size_t capacity) {\\n        capacity_ = capacity;\\n        buffer_.reserve(capacity);\\n        buffer_.clear();\\n        insertion_order_.reserve(capacity);\\n    }\", \"new\": \"    void configure(size_t capacity) {\\n        capacity_ = capacity;\\n        buffer_.clear();\\n        buffer_.reserve(capacity);\\n        insertion_order_.assign(capacity, 0.0);\\n        head_ = 0;\\n        count_ = 0;\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now rewrite the `process` method to eliminate heap allocations and use the circular buffer for managing the window. I will ensure that for the \"full\" case, the oldest element is removed before the new one is inserted to ensure `buffer_` never exceeds `capacity_`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double process(double value) {\\n        if (buffer_.size() < capacity_) {\\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), value);\\n            buffer_.insert(it, value);\\n            insertion_order_.push_back(value);\\n        } else {\\n            double oldest = insertion_order_.front();\\n            insertion_order_.erase(insertion_order_.begin());\\n            \\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), oldest);\\n            if (it != buffer_.end() && *it == oldest) buffer_.erase(it);\\n            \\n            auto it_new = std::lower_bound(buffer_.begin(), buffer_.end(), value);\\n            buffer_.insert(it_new, value);\\n            insertion_order_.push_back(value);\\n        }\\n\\n        // Use a dynamic container for result calculation to handle intermediate steps\\n        auto result_data = std::make_shared<std::vector<double>>();\\n        result_data->assign(buffer_.begin(), buffer_.end());\\n        \\n        size_t n = result_data->size();\\n        if (n % 2 == 1) {\\n            return (*result_data)[n / 2];\\n        } else {\\n            return ((*result_data)[n / 2 - 1] + (*result_data)[n / 2]) / 2.0;\\n        }\\n    }\", \"new\": \"    double process(double value) {\\n        if (count_ < capacity_) {\\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), value);\\n            buffer_.insert(it, value);\\n            insertion_order_[head_] = value;\\n            head_ = (head_ + 1) % capacity_;\\n            count_++;\\n        } else {\\n            double oldest = insertion_order_[head_];\\n            auto it = std::lower_bound(buffer_.begin(), buffer_.end(), oldest);\\n            buffer_.erase(it);\\n            \\n            auto it_new = std::lower_bound(buffer_.begin(), buffer_.end(), value);\\n            buffer_.insert(it_new, value);\\n            insertion_order_[head_] = value;\\n            head_ = (head_ + 1) % capacity_;\\n        }\\n\\n        size_t n = buffer_.size();\\n        if (n % 2 == 1) {\\n            return buffer_[n / 2];\\n        } else {\\n            return (buffer_[n / 2 - 1] + buffer_[n / 2]) / 2.0;\\n        }\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I will now run the tests to verify the correctness of the implementation.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "I have replaced the heap-allocating `std::shared_ptr` and `std::vector` operations with a fixed-size circular buffer for tracking insertion order and performing median calculations directly on the reserved buffer. This ensures that `process()` performs no allocations or deallocations during the real-time path.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

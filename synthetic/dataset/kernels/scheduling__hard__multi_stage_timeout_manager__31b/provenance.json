@@ -1,0 +1,120 @@
+{
+ "id": "scheduling__hard__multi_stage_timeout_manager__31b",
+ "idea": {
+  "domain": "scheduling",
+  "level": "hard",
+  "name": "multi_stage_timeout_manager",
+  "class": "MultiStageTimeoutManager",
+  "summary": "Tracks multiple concurrent timers and transitions a state machine through escalating warning levels.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 24,
+   "compiled": 24,
+   "killed": 21,
+   "kill_rate": 0.875,
+   "survivors": [
+    "line 100: == -> !=",
+    "line 61: 0 -> 1",
+    "line 33: false -> true"
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 0,
+    "F": 0,
+    "R": 0,
+    "alloc": null,
+    "mismatch": "",
+    "build_error": "/usr/include/c++/11/bits/unique_ptr.h:968:30: error: no matching function for call to \u2018TimerHandle::TimerHandle()\u2019 "
+   },
+   "std_function.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 301,
+     "allocs": 903,
+     "bytes": 89096,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 903
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "std_function.hpp"
+   ]
+  }
+ },
+ "repairs": [
+  {
+   "round": 1,
+   "after": "G1: reference.hpp F=0 R=0, reference_2.hpp F=0 R=0",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  },
+  {
+   "round": 2,
+   "after": "G1: reference.hpp F=0 R=1, reference_2.hpp F=0 R=1",
+   "by": "31b",
+   "files": [
+    "reference.hpp",
+    "test.cpp"
+   ]
+  }
+ ],
+ "accepted": true,
+ "rejected": null,
+ "round": 2,
+ "test_include_normalized": true
+}

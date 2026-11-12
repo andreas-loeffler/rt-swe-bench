@@ -1,0 +1,111 @@
+{
+ "id": "motion__medium__circular_buffer_trajectory_smoother__31b",
+ "idea": {
+  "domain": "motion",
+  "level": "medium",
+  "name": "circular_buffer_trajectory_smoother",
+  "class": "TrajectorySmoother",
+  "summary": "Applies a moving average or low-pass filter to a stream of incoming trajectory setpoints using a fixed-size ring buffer.",
+  "generator": "31b"
+ },
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "cross_checker": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "prompt_version": "t1-v3",
+ "sampling": {
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "top_k": 64,
+  "max_tokens": 12000
+ },
+ "gates": {
+  "G1": {
+   "reference.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1022,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "reference_2.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 1022,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   }
+  },
+  "G2": {
+   "stub_F": 0,
+   "mutants": 13,
+   "compiled": 13,
+   "killed": 11,
+   "kill_rate": 0.846,
+   "survivors": [
+    "line 30: 0.0f -> 1.0f",
+    "line 16: 0 -> 1"
+   ]
+  },
+  "G3": {
+   "shared_ptr.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1022,
+     "allocating_cycles": 511,
+     "allocs": 511,
+     "bytes": 12264,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 511
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "temporary_container.hpp": {
+    "build": 1,
+    "F": 1,
+    "R": 0,
+    "alloc": {
+     "cycles": 1022,
+     "allocating_cycles": 511,
+     "allocs": 511,
+     "bytes": 20260,
+     "sites": [
+      {
+       "site": "??",
+       "allocs": 511
+      }
+     ]
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kept": [
+    "shared_ptr.hpp",
+    "temporary_container.hpp"
+   ]
+  }
+ },
+ "accepted": true,
+ "rejected": null,
+ "round": 0,
+ "test_include_normalized": true
+}

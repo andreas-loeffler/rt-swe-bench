@@ -1,0 +1,107 @@
+{
+ "id": "control__hard__complementary_filter_bank__31b__remediate_shared_ptr",
+ "kernel": "control__hard__complementary_filter_bank__31b",
+ "kind": "remediate",
+ "level": "hard",
+ "domain": "control",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 7,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 600,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cmath>\n#include <algorithm>\n#include <memory>\n\n/**\n * Internal state and calculation logic for a single axis.\n */\nstruct FilterState {\n    double dt;\n    double alpha;\n    double state = 0.0;\n\n    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n\n    double update(double gyro, double accel) {\n        double angle_gyro = state + (gyro * dt);\n        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n        return state;\n    }\n};\n\nclass ComplementaryFilterBank {\npublic:\n    void configure(size_t num_axes, double sample_rate, double alpha) {\n        m_num_axes = num_axes;\n        m_dt = 1.0 / sample_rate;\n        m_alpha = alpha;\n        \n        m_filters.clear();\n        for (size_t i = 0; i < num_axes; ++i) {\n            m_filters.emplace_back(m_dt, m_alpha);\n        }\n    }\n\n    void process(const double* gyro_rates, const double* accels, double* output) {\n        for (size_t i = 0; i < m_num_axes; ++i) {\n            output[i] = m_filters[i].update(gyro_rates[i], accels[i]);\n        }\n    }\n\nprivate:\n    size_t m_num_axes = 0;\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    std::vector<FilterState> m_filters;\n};\n"
+  }
+ ],
+ "steps": 7,
+ "usage": {
+  "prompt_tokens": 14978,
+  "completion_tokens": 1805
+ },
+ "started": 1793818493.3803394,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1300.2,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "I need to examine the specification and the current implementation to identify where heap allocations are occurring in the real-time methods and how to eliminate them.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-26 of 26)\n     1\t# ComplementaryFilterBank\n     2\t\n     3\tThe `ComplementaryFilterBank` computes a stable attitude estimate by fusing data from two different sensors (typically an accelerometer/gravimeter for low-frequency stability and a gyroscope for high-frequency responsiveness) across multiple axes.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(size_t num_axes, double sample_rate, double alpha)`\n     8\t- `num_axes`: Number of spatial dimensions (e.g., 3 for XYZ).\n     9\t- `sample_rate`: The sampling frequency in Hz.\n    10\t- `alpha`: The filter coefficient (typically 0.95 to 0.99). Higher values trust the gyroscope more.\n    11\t- **Preconditions**: `num_axes > 0`, `sample_rate > 0`, `0.0 < alpha < 1.0`.\n    12\t- **Note**: This method may allocate memory.\n    13\t\n    14\t### `void process(const double* gyro_rates, const double* accels, double* output)`\n    15\t- `gyro_rates`: Array of size `num_axes` containing angular velocities (rad/s).\n    16\t- `accels`: Array of size `num_axes` containing normalized acceleration vectors (gravity reference).\n    17\t- `output`: Array of size `num_axes` where the estimated attitude (angles) is written.\n    18\t- **Real-time Constraint**: This method must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    19\t\n    20\t## Behavior\n    21\tThe filter maintains an internal state for each axis. For each axis $i$:\n    22\t1. Integrate the gyroscope rate: $\\text{angle}_{gyro} = \\text{angle}_{prev} + (\\text{gyro\\_rate}_i / \\text{sample\\_rate})$.\n    23\t2. Calculate the low-pass estimate from the accelerometer: $\\text{angle}_{accel} = \\text{atan2}(\\text{accel}_i, \\text{accel}_{ref})$ (Note: implementation uses a simplified linear mapping for the benchmark bank).\n    24\t3. Fuse using the complementary formula: $\\text{angle}_{new} = \\alpha \\cdot \\text{angle}_{gyro} + (1 - \\alpha) \\cdot \\text{angle}_{accel}$.\n    25\t\n    26\tThe class handles internal state initialization and maintains the integration across calls."
+  },
+  {
+   "role": "assistant",
+   "content": "I will now examine the current implementation of `kernel.hpp` to find the heap allocations in the `process` method.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-56 of 56)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cmath>\n     5\t#include <algorithm>\n     6\t#include <memory>\n     7\t\n     8\t/**\n     9\t * Internal state and calculation logic for a single axis.\n    10\t */\n    11\tstruct FilterState {\n    12\t    double dt;\n    13\t    double alpha;\n    14\t    double state = 0.0;\n    15\t\n    16\t    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n    17\t\n    18\t    double update(double gyro, double accel) {\n    19\t        double angle_gyro = state + (gyro * dt);\n    20\t        state = (alpha * angle_gyro) + ((1.0 - alpha) * accel);\n    21\t        return state;\n    22\t    }\n    23\t};\n    24\t\n    25\tclass ComplementaryFilterBank {\n    26\tpublic:\n    27\t    void configure(size_t num_axes, double sample_rate, double alpha) {\n    28\t        m_num_axes = num_axes;\n    29\t        m_dt = 1.0 / sample_rate;\n    30\t        m_alpha = alpha;\n    31\t        \n    32\t        m_filters.clear();\n    33\t        for (size_t i = 0; i < num_axes; ++i) {\n    34\t            m_filters.push_back(nullptr);\n    35\t        }\n    36\t    }\n    37\t\n    38\t    void process(const double* gyro_rates, const double* accels, double* output) {\n    39\t        for (size_t i = 0; i < m_num_axes; ++i) {\n    40\t            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\n    41\t        }\n    42\t    }\n    43\t\n    44\tprivate:\n    45\t    double apply_filter(size_t axis_index, double gyro, double accel) {\n    46\t        if (!m_filters[axis_index]) {\n    47\t            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n    48\t        }\n    49\t        return m_filters[axis_index]->update(gyro, accel);\n    50\t    }\n    51\t\n    52\t    size_t m_num_axes = 0;\n    53\t    double m_dt = 0.0;\n    54\t    double m_alpha = 0.0;\n    55\t    std::vector<std::shared_ptr<FilterState>> m_filters;\n    56\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "The `process` method calls `apply_filter`, which uses `std::make_shared<FilterState>` to lazily initialize the filters. This is a heap allocation occurring during the real-time processing phase, which violates the specification.\n\nTo fix this, I will move the initialization of the filters to the `configure` method, which is allowed to allocate memory. I will also change `std::vector<std::shared_ptr<FilterState>>` to `std::vector<FilterState>` to avoid unnecessary indirection and further allocations.\n\nFirst, I'll update the `configure` method to initialize the `FilterState` objects.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"        m_filters.clear();\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.push_back(nullptr);\\n        }\", \"new\": \"        m_filters.clear();\\n        for (size_t i = 0; i < num_axes; ++i) {\\n            m_filters.emplace_back(m_dt, m_alpha);\\n        }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "Now I need to update the `process` method and remove the `apply_filter` helper method, as the filters are now pre-initialized in `configure`. I will also change the member variable `m_filters` to be a `std::vector<FilterState>` instead of a vector of shared pointers.\n\nFirst, let's update the `process` method.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    void process(const double* gyro_rates, const double* accels, double* output) {\\n        for (size_t i = 0; i < m_num_axes; ++i) {\\n            output[i] = apply_filter(i, gyro_rates[i], accels[i]);\\n        }\\n    }\", \"new\": \"    void process(const double* gyro_rates, const double* accels, double* output) {\\n        for (size_t i = 0; i < m_num_axes; ++i) {\\n            output[i] = m_filters[i].update(gyro_rates[i], accels[i]);\\n        }\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "Now I will remove the `apply_filter` method and update the `m_filters` member variable type to `std::vector<FilterState>`.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double apply_filter(size_t axis_index, double gyro, double accel) {\\n        if (!m_filters[axis_index]) {\\n            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\\n        }\\n        return m_filters[axis_index]->update(gyro, accel);\\n    }\\n\\n    size_t m_num_axes = 0;\\n    double m_dt = 0.0;\\n    double m_alpha = 0.0;\\n    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    size_t m_num_axes = 0;\\n    double m_dt = 0.0;\\n    double m_alpha = 0.0;\\n    std::vector<FilterState> m_filters;\"}}\n```\n\nWait, the `FilterState` struct does not have a default constructor, but `std::vector<FilterState>` with `emplace_back` should be fine. Actually, looking at the `FilterState` definition:\n```cpp\nstruct FilterState {\n    double dt;\n    double alpha;\n    double state = 0.0;\n\n    FilterState(double dt, double alpha) : dt(dt), alpha(alpha) {}\n    ...\n};\n```\nIt doesn't have a default constructor. `m_filters.clear()` followed by `emplace_back` is correct. However, I should make sure `m_filters` is declared after it's used or that the constructor of `ComplementaryFilterBank` doesn't fail. The current code is fine as `configure` is called explicitly.\n\nOne detail: I replaced a block that included the member variables. Let me double check the `old` string matches exactly.\n\nThe `old` string I used:\n```cpp\n    double apply_filter(size_t axis_index, double gyro, double accel) {\n        if (!m_filters[axis_index]) {\n            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n        }\n        return m_filters[axis_index]->update(gyro, accel);\n    }\n\n    size_t m_num_axes = 0;\n    double m_dt = 0.0;\n    double m_alpha = 0.0;\n    std::vector<std::shared_ptr<FilterState>> m_filters;\n```\nWait, `m_filters` was at line 55, and `apply_filter` started at 45.\n\nLet's check lines 45-56 of the original file:\n45:    double apply_filter(size_t axis_index, double gyro, double accel) {\n46:        if (!m_filters[axis_index]) {\n47:            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\n48:        }\n49:        return m_filters[axis_index]->update(gyro, accel);\n50:    }\n51:\n52:    size_t m_num_axes = 0;\n53:    double m_dt = 0.0;\n54:    double m_alpha = 0.0;\n55:    std::vector<std::shared_ptr<FilterState>> m_filters;\n\nMy `old` string had a blank line at 51.\n\nLet's try the edit.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    double apply_filter(size_t axis_index, double gyro, double accel) {\\n        if (!m_filters[axis_index]) {\\n            m_filters[axis_index] = std::make_shared<FilterState>(m_dt, m_alpha);\\n        }\\n        return m_filters[axis_index]->update(gyro, accel);\\n    }\\n\\n    size_t m_num_axes = 0;\\n    double m_dt = 0.0;\\n    double m_alpha = 0.0;\\n    std::vector<std::shared_ptr<FilterState>> m_filters;\", \"new\": \"    size_t m_num_axes = 0;\\n    double m_dt = 0.0;\\n    double m_alpha = 0.0;\\n    std::vector<FilterState> m_filters;\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "I have moved the initialization of the filter states from the `process` method to the `configure` method and changed the storage from a vector of shared pointers to a vector of objects. This eliminates all heap allocations during the execution of the real-time `process` method.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

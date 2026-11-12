@@ -1,0 +1,91 @@
+{
+ "id": "signal_processing__easy__iir_filter_first_order__12b__implement",
+ "kernel": "signal_processing__easy__iir_filter_first_order__12b",
+ "kind": "implement",
+ "level": "easy",
+ "domain": "signal_processing",
+ "generator": "google/gemma-4-12B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 501,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\nclass IirFilter {\npublic:\n    void configure(float alpha) {\n        m_alpha = alpha;\n        m_prev_output = 0.0f;\n    }\n\n    float process(float input) {\n        m_prev_output = m_alpha * input + (1.0f - m_alpha) * m_prev_output;\n        return m_prev_output;\n    }\n\nprivate:\n    float m_alpha = 0.0f;\n    float m_prev_output = 0.0f;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 4782,
+  "completion_tokens": 583
+ },
+ "started": 1793818757.393554,
+ "solver": "gemma-4-12B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 560.6,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "I will begin by reading the specification to understand the requirements for the `Kernel` class.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\", \"start\": 1, \"end\": 100}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-21 of 21)\n     1\t# IirFilter (First-Order)\n     2\t\n     3\tComputes a first-order Infinite Impulse Response (IIR) filter. This is commonly used for basic low-pass or high-pass filtering of signal data.\n     4\t\n     5\t## API\n     6\t\n     7\t### `void configure(float alpha)`\n     8\tConfigures the filter coefficients.\n     9\t- `alpha`: The smoothing factor (typically $0 < \\alpha < 1$).\n    10\t\n    11\t### `float process(float input)`\n    12\tProcesses a single sample through the filter.\n    13\t- `input`: The raw input sample.\n    14\t- Returns: The filtered output sample.\n    15\t\n    16\t## Preconditions\n    17\t- `configure` must be called before any calls to `process`.\n    18\t- `alpha` should be in the range $(0, 1)$ for stable behavior.\n    19\t\n    20\t## Real-time Constraints\n    21\t- `process` is a real-time method: it must not allocate, throw, lock, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe specification describes a first-order IIR filter. A common implementation of a first-order IIR filter (specifically an Exponential Moving Average, often used as a low-pass filter) is:\n$y[n] = \\alpha \\cdot x[n] + (1 - \\alpha) \\cdot y[n-1]$\nwhere $x$ is the input and $y$ is the output.\n\nI need to check the `kernel.hpp` file to see the current structure.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 1, \"end\": 100}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-13 of 13)\n     1\t#pragma once\n     2\t\n     3\tclass IirFilter {\n     4\tpublic:\n     5\t    void configure(float alpha) {\n     6\t        // TODO\n     7\t    }\n     8\t\n     9\t    float process(float input) {\n    10\t        // TODO\n    11\t        return 0.0f;\n    12\t    }\n    13\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "I will update the `IirFilter` class to store the coefficients and the previous state, and implement the filter logic.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class IirFilter {\\npublic:\\n    void configure(float alpha) {\\n        // TODO\\n    }\\n\\n    float process(float input) {\\n        // TODO\\n        return 0.0f;\\n    }\\n};\\n\", \"new\": \"class IirFilter {\\npublic:\\n    void configure(float alpha) {\\n        m_alpha = alpha;\\n        m_prev_output = 0.0f;\\n    }\\n\\n    float process(float input) {\\n        m_prev_output = m_alpha * input + (1.0f - m_alpha) * m_prev_output;\\n        return m_prev_output;\\n    }\\n\\nprivate:\\n    float m_alpha = 0.0f;\\n    float m_prev_output = 0.0f;\\n};\\n\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will run the test to verify the implementation.\n\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI have implemented the `IirFilter` class according to the specification. The `configure` method sets the smoothing factor $\\alpha$ and initializes the state, while the `process` method computes the first-order IIR filter output using the recursive formula $y[n] = \\alpha \\cdot x[n] + (1 - \\alpha) \\cdot y[n-1]$.\n\n```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

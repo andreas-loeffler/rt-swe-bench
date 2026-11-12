@@ -1,0 +1,155 @@
+{
+ "id": "scheduling__hard__multi_stage_timeout_manager__31b__implement",
+ "kernel": "scheduling__hard__multi_stage_timeout_manager__31b",
+ "kind": "implement",
+ "level": "hard",
+ "domain": "scheduling",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C0",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 13,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 616,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n\n#include <vector>\n#include <cstdint>\n\nclass MultiStageTimeoutManager {\n    struct Timer {\n        uint32_t id = 0;\n        double elapsed = 0.0;\n        bool active = false;\n    };\n    std::vector<Timer> timers;\n    std::vector<double> thresholds;\n\npublic:\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\n        timers.assign(max_timers, Timer{});\n        thresholds = thresholds_in;\n    }\n\n    void reset(uint32_t id) {\n        for (auto& timer : timers) {\n            if (timer.active && timer.id == id) {\n                timer.elapsed = 0.0;\n                return;\n            }\n        }\n        for (auto& timer : timers) {\n            if (!timer.active) {\n                timer.id = id;\n                timer.elapsed = 0.0;\n                timer.active = true;\n                return;\n            }\n        }\n    }\n\n    void update(uint32_t id, double delta_time) {\n        for (auto& timer : timers) {\n            if (timer.active && timer.id == id) {\n                timer.elapsed += delta_time;\n                return;\n            }\n        }\n    }\n\n    uint8_t get_stage(uint32_t id) const {\n        for (const auto& timer : timers) {\n            if (timer.active && timer.id == id) {\n                uint8_t stage = 0;\n                for (double t : thresholds) {\n                    if (timer.elapsed >= t) {\n                        stage++;\n                    } else {\n                        break;\n                    }\n                }\n                return stage;\n            }\n        }\n        return 0;\n    }\n\n    bool is_critical(uint32_t id) const {\n        for (const auto& timer : timers) {\n            if (timer.active && timer.id == id) {\n                return get_stage(id) == thresholds.size();\n            }\n        }\n        return false;\n    }\n};\n"
+  }
+ ],
+ "steps": 13,
+ "usage": {
+  "prompt_tokens": 48262,
+  "completion_tokens": 4570
+ },
+ "started": 1793821613.1139622,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 1464.6,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md."
+  },
+  {
+   "role": "user",
+   "content": "Implement the class in kernel.hpp so that it meets the specification in spec.md.\nkernel.hpp currently holds a stub with the public API and TODOs."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will start by examining the specification and the current state of `kernel.hpp`.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-30 of 30)\n     1\t# MultiStageTimeoutManager\n     2\t\n     3\tThe `MultiStageTimeoutManager` tracks multiple concurrent timers, each associated with a specific ID. Each timer progresses through a series of escalating warning levels based on configurable time thresholds.\n     4\t\n     5\t## Public API\n     6\t\n     7\t### Configuration\n     8\t- `void configure(size_t max_timers, const std::vector<double>& thresholds)`\n     9\t  - `max_timers`: Maximum number of concurrent timers to track.\n    10\t  - `thresholds`: A sorted list of time durations. If a timer's elapsed time exceeds `thresholds[i]`, it transitions to stage `i + 1`.\n    11\t\n    12\t### Real-Time Methods\n    13\tAll real-time methods must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O.\n    14\t\n    15\t- `void reset(uint32_t id)`\n    16\t  - Resets the timer associated with `id` to 0. If the `id` is not currently tracked, it starts tracking it. If `max_timers` is reached, the call is ignored.\n    17\t- `void update(uint32_t id, double delta_time)`\n    18\t  - Increments the elapsed time for timer `id` by `delta_time`.\n    19\t- `uint8_t get_stage(uint32_t id) const`\n    20\t  - Returns the current stage of the timer. Stage 0 means no threshold reached. Stage $N$ means the $N$-th threshold has been exceeded. Returns 0 if the ID is not tracked.\n    21\t- `bool is_critical(uint32_t id) const`\n    22\t  - Returns true if the timer for `id` has reached the final stage defined in `configure`.\n    23\t\n    24\t## Behavior\n    25\t1. A timer starts at stage 0.\n    26\t2. As `update` is called, the accumulated time is compared against the `thresholds` array.\n    27\t3. If `accumulated_time >= thresholds[0]`, the stage becomes 1.\n    28\t4. If `accumulated_time >= thresholds[k]`, the stage becomes $k+1$.\n    29\t5. `reset` returns the timer to stage 0 and time 0.\n    30\t6. The manager supports up to `max_timers` unique IDs."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-29 of 29)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t\n     6\tclass MultiStageTimeoutManager {\n     7\tpublic:\n     8\t    void configure(size_t max_timers, const std::vector<double>& thresholds) {\n     9\t        // TODO: Implement allocation and configuration\n    10\t    }\n    11\t\n    12\t    void reset(uint32_t id) {\n    13\t        // TODO: Implement timer reset/activation\n    14\t    }\n    15\t\n    16\t    void update(uint32_t id, double delta_time) {\n    17\t        // TODO: Implement time accumulation\n    18\t    }\n    19\t\n    20\t    uint8_t get_stage(uint32_t id) const {\n    21\t        // TODO: Implement stage calculation\n    22\t        return 0;\n    23\t    }\n    24\t\n    25\t    bool is_critical(uint32_t id) const {\n    26\t        // TODO: Implement critical state check\n    27\t        return false;\n    28\t    }\n    29\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "// I need to implement the `MultiStageTimeoutManager`. \n// Since real-time methods cannot allocate heap memory, I'll store the timers in a pre-allocated structure.\n// To efficiently manage IDs without allocating on every reset, I'll use a fixed-size array or vector allocated during `configure`.\n// Each entry will store the ID and the accumulated time.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MultiStageTimeoutManager {\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\\n        // TODO: Implement allocation and configuration\\n    }\\n\\n    void reset(uint32_t id) {\\n        // TODO: Implement timer reset/activation\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        // TODO: Implement time accumulation\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        // TODO: Implement stage calculation\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        // TODO: Implement critical state check\\n        return false;\\n    }\\n};\", \"new\": \"class MultiStageTimeoutManager {\\n    struct Timer {\\n        uint32_t id = 0;\\n        double elapsed = 0.0;\\n        bool active = false;\\n    };\\n    std::vector<Timer> timers;\\n    std::vector<double> thresholds;\\n\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\\n        timers.assign(max_timers, Timer{});\\n        thresholds = thresholds_in;\\n    }\\n\\n    void reset(uint32_t id) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed = 0.0;\\n                return;\\n            }\\n        }\\n        for (auto& timer : timers) {\\n            if (!timer.active) {\\n                timer.id = id;\\n                timer.elapsed = 0.0;\\n                timer.active = true;\\n                return;\\n            }\\n        }\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed += delta_time;\\n                return;\\n            }\\n        }\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                uint8_t stage = 0;\\n                for (double t : thresholds) {\\n                    if (timer.elapsed >= t) {\\n                        stage++;\\n                    } else {\\n                        break;\\n                    }\\n                }\\n                return stage;\\n            }\\n        }\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        uint8_t stage = get_stage(id);\\n        return stage == thresholds.size();\\n    }\\n};\"}\n```"
+  },
+  {
+   "role": "user",
+   "content": "error: no action found. Reply with one JSON action in a ```json block."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MultiStageTimeoutManager {\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\\n        // TODO: Implement allocation and configuration\\n    }\\n\\n    void reset(uint32_t id) {\\n        // TODO: Implement timer reset/activation\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        // TODO: Implement time accumulation\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        // TODO: Implement stage calculation\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        // TODO: Implement critical state check\\n        return false;\\n    }\\n};\", \"new\": \"class MultiStageTimeoutManager {\\n    struct Timer {\\n        uint32_t id = 0;\\n        double elapsed = 0.0;\\n        bool active = false;\\n    };\\n    std::vector<Timer> timers;\\n    std::vector<double> thresholds;\\n\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\\n        timers.assign(max_timers, Timer{});\\n        thresholds = thresholds_in;\\n    }\\n\\n    void reset(uint32_t id) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed = 0.0;\\n                return;\\n            }\\n        }\\n        for (auto& timer : timers) {\\n            if (!timer.active) {\\n                timer.id = id;\\n                timer.elapsed = 0.0;\\n                timer.active = true;\\n                return;\\n            }\\n        }\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed += delta_time;\\n                return;\\n            }\\n        }\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                uint8_t stage = 0;\\n                for (double t : thresholds) {\\n                    if (timer.elapsed >= t) {\\n                        stage++;\\n                    } else {\\n                        break;\\n                    }\\n                }\\n                return stage;\\n            }\\n        }\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        uint8_t stage = get_stage(id);\\n        return stage == thresholds.size();\\n    }\\n};\"}\n```"
+  },
+  {
+   "role": "user",
+   "content": "error: no action found. Reply with one JSON action in a ```json block."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\n```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. A functional check failed: Stage check loop"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe functional check failed on \"Stage check loop\". Looking at my `get_stage` implementation:\n```cpp\n    uint8_t get_stage(uint32_t id) const {\n        for (const auto& timer : timers) {\n            if (timer.active && timer.id == id) {\n                uint8_t stage = 0;\n                for (double t : thresholds) {\n                    if (timer.elapsed >= t) {\n                        stage++;\n                    } else {\n                        break;\n                    }\n                }\n                return stage;\n            }\n        }\n        return 0;\n    }\n```\nWait, `thresholds` is a `std::vector<double>`. `thresholds.size()` could be larger than `uint8_t` (up to 255), but the spec says `uint8_t` return. If `thresholds.size()` is very large, `stage` will wrap. However, it's more likely that my logic for finding the timer or the stage is missing something.\n\nWait, I noticed that `is_critical` uses `get_stage(id)` and compares it to `thresholds.size()`. If `thresholds.size()` is larger than 255, `uint8_t stage` cannot equal it. But `thresholds.size()` returns `size_t`.\n\nLet's check the `configure` method. If `max_timers` is 0, `timers.assign(0, Timer{})` will result in an empty vector. `reset` will then do nothing, which is correct.\n\nLet's look at the `get_stage` logic again. \n`If accumulated_time >= thresholds[0], the stage becomes 1.`\n`If accumulated_time >= thresholds[k], the stage becomes k+1.`\nMy code:\n```cpp\n                uint8_t stage = 0;\n                for (double t : thresholds) {\n                    if (timer.elapsed >= t) {\n                        stage++;\n                    } else {\n                        break;\n                    }\n                }\n```\nIf `timer.elapsed` is 10 and `thresholds` are `{5, 15}`, `stage` becomes 1. This is correct.\nIf `timer.elapsed` is 20 and `thresholds` are `{5, 15}`, `stage` becomes 2. This is correct.\nIf `timer.elapsed` is 2 and `thresholds` are `{5, 15}`, `stage` becomes 0. This is correct.\n\nCould the issue be that `thresholds` is not sorted? The spec says: \"thresholds: A sorted list of time durations.\" So I can assume they are sorted.\n\nWhat if `thresholds` is empty? \n`get_stage` returns 0. \n`is_critical` returns `0 == 0` which is `true`. \nIs that correct? \"Returns true if the timer for id has reached the final stage defined in configure.\" If there are no thresholds, is stage 0 the final stage? \nActually, if `thresholds` is empty, the final stage is 0. So `is_critical` should probably return `true` if the timer is tracked? Or maybe `false` if no thresholds are defined at all?\nWait, if `thresholds` is empty, then no matter the time, the stage is always 0. The \"final stage\" would be stage 0.\n\nLet's re-read: \"Returns true if the timer for id has reached the final stage defined in configure.\"\nIf `thresholds` has $N$ elements, the final stage is $N$.\nIf `thresholds` is empty, $N=0$. Stage 0 is reached immediately.\n\nLet's double check `is_critical` again:\n```cpp\n    bool is_critical(uint32_t id) const {\n        uint8_t stage = get_stage(id);\n        return stage == thresholds.size();\n    }\n```\nIf `thresholds.size()` is 0, `get_stage(id)` for a tracked timer is 0. `0 == 0` is true.\nIf `thresholds.size()` is 0, `get_stage(id)` for an untracked timer is 0. `0 == 0` is true.\nBut `is_critical` should probably return `false` if the ID is not tracked.\n\nWait, \"Returns 0 if the ID is not tracked\" for `get_stage`.\nIf `id` is not tracked, `get_stage(id)` returns 0. If `thresholds.size()` is 0, `is_critical` returns true. That's wrong. An untracked timer should not be critical.\n\nLet's fix `is_critical` and also ensure `get_stage` handles untracked timers correctly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool is_critical(uint32_t id) const {\\n        uint8_t stage = get_stage(id);\\n        return stage == thresholds.size();\\n    }\\n};\", \"new\": \"    bool is_critical(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                return get_stage(id) == thresholds.size();\\n            }\\n        }\\n        return false;\\n    }\\n};\"}\n```"
+  },
+  {
+   "role": "user",
+   "content": "error: no action found. Reply with one JSON action in a ```json block."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool is_critical(uint32_t id) const {\\n        uint8_t stage = get_stage(id);\\n        return stage == thresholds.size();\\n    }\\n};\", \"new\": \"    bool is_critical(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                return get_stage(id) == thresholds.size();\\n            }\\n        }\\n        return false;\\n    }\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "error: old text occurs 0 times in kernel.hpp; it must match the file exactly, including indentation.\nLines in the file that match the first line of old, with their exact indentation (JSON-quoted):\n  line 25: \"    bool is_critical(uint32_t id) const {\""
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI will try to replace the `is_critical` method with the corrected version, ensuring the old text matches the file exactly.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    bool is_critical(uint32_t id) const {\\n        uint8_t stage = get_stage(id);\\n        return stage == thresholds.size();\\n    }\\n};\", \"new\": \"    bool is_critical(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                return get_stage(id) == thresholds.size();\\n            }\\n        }\\n        return false;\\n    }\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "error: old text occurs 0 times in kernel.hpp; it must match the file exactly, including indentation.\nLines in the file that match the first line of old, with their exact indentation (JSON-quoted):\n  line 25: \"    bool is_critical(uint32_t id) const {\""
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI'll use `view` to see the exact content of the end of the file to avoid indentation or whitespace errors.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\", \"start\": 20, \"end\": 29}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 20-29 of 29)\n    20\t    uint8_t get_stage(uint32_t id) const {\n    21\t        // TODO: Implement stage calculation\n    22\t        return 0;\n    23\t    }\n    24\t\n    25\t    bool is_critical(uint32_t id) const {\n    26\t        // TODO: Implement critical state check\n    27\t        return false;\n    28\t    }\n    29\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nWait, I already performed a large `edit` to replace the whole class body, but the `view` result I just got shows the `TODO`s. This means my previous `edit` failed, and I didn't notice it because it returned \"no action found\" then a generic error. \n\nLooking back at the history:\n1. My first `edit` had a thought block before the JSON, which the system might have rejected or I messed up the format.\n2. The system said `error: no action found.` twice.\n\nAh, I see. My first attempt to replace the whole class body was:\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MultiStageTimeoutManager {\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\\n        // TODO: Implement allocation and configuration\\n    }\\n\\n    void reset(uint32_t id) {\\n        // TODO: Implement timer reset/activation\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        // TODO: Implement time accumulation\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        // TODO: Implement stage calculation\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        // TODO: Implement critical state check\\n        return false;\\n    }\\n};\", \"new\": \"...\"}}\n```\nBut the `kernel.hpp` file had:\n```cpp\nclass MultiStageTimeoutManager {\npublic:\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\n        // TODO: Implement allocation and configuration\n    }\n\n    void reset(uint32_t id) {\n        // TODO: Implement timer reset/activation\n    }\n\n    void update(uint32_t id, double delta_time) {\n        // TODO: Implement time accumulation\n    }\n\n    uint8_t get_stage(uint32_t id) const {\n        // TODO: Implement stage calculation\n        return 0;\n    }\n\n    bool is_critical(uint32_t id) const {\n        // TODO: Implement critical state check\n        return false;\n    }\n};\n```\nThe `old` text must match exactly. Let me try to replace the class contents piece by piece or ensure the `old` string is exactly what's in the file.\n\nActually, I'll just rewrite the whole class again, being very careful with the `old` string. I'll use `view` to get the exact content first.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-29 of 29)\n     1\t#pragma once\n     2\t\n     3\t#include <vector>\n     4\t#include <cstdint>\n     5\t\n     6\tclass MultiStageTimeoutManager {\n     7\tpublic:\n     8\t    void configure(size_t max_timers, const std::vector<double>& thresholds) {\n     9\t        // TODO: Implement allocation and configuration\n    10\t    }\n    11\t\n    12\t    void reset(uint32_t id) {\n    13\t        // TODO: Implement timer reset/activation\n    14\t    }\n    15\t\n    16\t    void update(uint32_t id, double delta_time) {\n    17\t        // TODO: Implement time accumulation\n    18\t    }\n    19\t\n    20\t    uint8_t get_stage(uint32_t id) const {\n    21\t        // TODO: Implement stage calculation\n    22\t        return 0;\n    23\t    }\n    24\t\n    25\t    bool is_critical(uint32_t id) const {\n    26\t        // TODO: Implement critical state check\n    27\t        return false;\n    28\t    }\n    29\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"class MultiStageTimeoutManager {\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds) {\\n        // TODO: Implement allocation and configuration\\n    }\\n\\n    void reset(uint32_t id) {\\n        // TODO: Implement timer reset/activation\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        // TODO: Implement time accumulation\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        // TODO: Implement stage calculation\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        // TODO: Implement critical state check\\n        return false;\\n    }\\n};\", \"new\": \"class MultiStageTimeoutManager {\\n    struct Timer {\\n        uint32_t id = 0;\\n        double elapsed = 0.0;\\n        bool active = false;\\n    };\\n    std::vector<Timer> timers;\\n    std::vector<double> thresholds;\\n\\npublic:\\n    void configure(size_t max_timers, const std::vector<double>& thresholds_in) {\\n        timers.assign(max_timers, Timer{});\\n        thresholds = thresholds_in;\\n    }\\n\\n    void reset(uint32_t id) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed = 0.0;\\n                return;\\n            }\\n        }\\n        for (auto& timer : timers) {\\n            if (!timer.active) {\\n                timer.id = id;\\n                timer.elapsed = 0.0;\\n                timer.active = true;\\n                return;\\n            }\\n        }\\n    }\\n\\n    void update(uint32_t id, double delta_time) {\\n        for (auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                timer.elapsed += delta_time;\\n                return;\\n            }\\n        }\\n    }\\n\\n    uint8_t get_stage(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                uint8_t stage = 0;\\n                for (double t : thresholds) {\\n                    if (timer.elapsed >= t) {\\n                        stage++;\\n                    } else {\\n                        break;\\n                    }\\n                }\\n                return stage;\\n            }\\n        }\\n        return 0;\\n    }\\n\\n    bool is_critical(uint32_t id) const {\\n        for (const auto& timer : timers) {\\n            if (timer.active && timer.id == id) {\\n                return get_stage(id) == thresholds.size();\\n            }\\n        }\\n        return false;\\n    }\\n};\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}

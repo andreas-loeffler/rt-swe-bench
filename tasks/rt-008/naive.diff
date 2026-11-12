@@ -1,0 +1,22 @@
+diff --git a/diff_drive_controller/src/diff_drive_controller.cpp b/diff_drive_controller/src/diff_drive_controller.cpp
+index 5ca23f20..2896ac14 100644
+--- a/diff_drive_controller/src/diff_drive_controller.cpp
++++ b/diff_drive_controller/src/diff_drive_controller.cpp
+@@ -176,7 +176,16 @@ controller_interface::return_type DiffDriveController::update_and_write_commands
+ 
+   if (params_.open_loop)
+   {
+-    odometry_.updateOpenLoop(linear_command, angular_command, time);
++    // Integrate the limited command: apply the limiter to a copy of the history
++    // so the real history is only updated once, below.
++    auto history = previous_two_commands_;
++    double limited_linear = linear_command;
++    double limited_angular = angular_command;
++    limiter_linear_->limit(
++      limited_linear, history.back()[0], history.front()[0], period.seconds());
++    limiter_angular_->limit(
++      limited_angular, history.back()[1], history.front()[1], period.seconds());
++    odometry_.updateOpenLoop(limited_linear, limited_angular, time);
+   }
+   else
+   {

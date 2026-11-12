@@ -1,0 +1,91 @@
+{
+ "id": "motion__medium__quintic_spline_generator__31b__remediate_container_growth",
+ "kernel": "motion__medium__quintic_spline_generator__31b",
+ "kind": "remediate",
+ "level": "medium",
+ "domain": "motion",
+ "generator": "google/gemma-4-31B-it-qat-w4a16-ct",
+ "condition": "C2",
+ "sample": 0,
+ "rounds": [
+  {
+   "round": 0,
+   "submitted": true,
+   "steps": 5,
+   "F": 1,
+   "R": 1,
+   "result": {
+    "build": 1,
+    "F": 1,
+    "R": 1,
+    "alloc": {
+     "cycles": 703,
+     "allocating_cycles": 0,
+     "allocs": 0,
+     "bytes": 0,
+     "sites": []
+    },
+    "mismatch": "",
+    "build_error": ""
+   },
+   "kernel": "#pragma once\n#include <algorithm>\n#include <vector>\n\nclass QuinticSplineGenerator {\npublic:\n    struct State {\n        double position;\n        double velocity;\n        double acceleration;\n    };\n\n    void configure(double duration) {\n        m_duration = duration;\n    }\n\n    void set_targets(double start_pos, double end_pos) {\n        m_p0 = start_pos;\n        m_p1 = end_pos;\n    }\n\n    State step(double t) {\n        if (t <= 0.0) {\n            return {m_p0, 0.0, 0.0};\n        }\n        if (t >= m_duration) {\n            return {m_p1, 0.0, 0.0};\n        }\n\n        return calculate_state(t);\n    }\n\nprivate:\n    State calculate_state(double t) {\n        double x = t / m_duration;\n        double x2 = x * x;\n        double x3 = x2 * x;\n        double x4 = x3 * x;\n        double x5 = x4 * x;\n\n        const double delta_p = m_p1 - m_p0;\n        const double inv_t = 1.0 / m_duration;\n        const double inv_t2 = inv_t * inv_t;\n\n        double pos = m_p0 + delta_p * (10.0 * x3 - 15.0 * x4 + 6.0 * x5);\n        double vel = delta_p * (30.0 * x2 - 60.0 * x3 + 30.0 * x4) * inv_t;\n        double acc = delta_p * (60.0 * x - 180.0 * x2 + 120.0 * x3) * inv_t2;\n\n        return {pos, vel, acc};\n    }\n\n    double m_duration = 1.0;\n    double m_p0 = 0.0;\n    double m_p1 = 0.0;\n};\n"
+  }
+ ],
+ "steps": 5,
+ "usage": {
+  "prompt_tokens": 11115,
+  "completion_tokens": 1968
+ },
+ "started": 1793818925.197346,
+ "solver": "gemma-4-31B-it-qat-w4a16-ct",
+ "F": 1,
+ "R": 1,
+ "repair_rounds": 0,
+ "seconds": 907.0,
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are a C++ engineer. You work on one header-only C++20 file, kernel.hpp, that\nimplements the class described in spec.md. A hidden test compiles kernel.hpp and checks its\nresults. Complete the task below by editing kernel.hpp.\n\nYou act through exactly one action per reply. Write a short line of reasoning, then the\naction as a JSON object in a ```json fenced block. Available actions:\n\n  {\"tool\": \"view\", \"args\": {\"path\": \"<spec.md or kernel.hpp>\", \"start\": <line>, \"end\": <line>}}\n      shows a file, at most 250 lines (start and end optional). Each line is printed as\n      its line number, a tab, then the line exactly as it is in the file.\n  {\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"<exact text>\", \"new\": \"<replacement>\"}}\n      replaces one exact occurrence of old with new. old must match the file exactly,\n      including indentation, and occur exactly once.\n  {\"tool\": \"test\", \"args\": {}}\n      compiles kernel.hpp into the hidden test and runs it. Returns the compiler errors or\n      whether the functional checks pass (and the first failing check).\n  {\"tool\": \"submit\", \"args\": {}}\n      ends your work. The current kernel.hpp is the solution. Run the test action after\n      your last edit first; submit is refused otherwise.\n\nKeep the public API (class name, method signatures) exactly as in spec.md.\n\nThis code runs on a hard real-time path. The real-time methods (everything except\nconfigure(...)) run once per cycle, often at 1 kHz or at audio rate, and must not allocate\nor free heap memory: no new/delete or malloc, no std::vector or std::string growth, no copies\nof containers or strings, no std::function that cannot store its callable inline, no\nexceptions. Allocate and size buffers in configure(...) instead, and reuse them in the\nreal-time methods. Allocation in configure(...) is fine."
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp implements the specification in spec.md and passes the functional test,\nbut its real-time methods allocate heap memory, which the specification forbids. Make them\nallocation-free without changing the results or the public API."
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nI need to examine `spec.md` and `kernel.hpp` to identify where heap allocations are occurring in the real-time path and how to move them to the `configure` method.\n\n```json\n{\"tool\": \"view\", \"args\": {\"path\": \"spec.md\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "spec.md (lines 1-29 of 29)\n     1\t# QuinticSplineGenerator\n     2\t\n     3\tThe `QuinticSplineGenerator` computes a quintic polynomial trajectory between two points in a single dimension. This ensures smooth motion by guaranteeing continuity in position, velocity, and acceleration.\n     4\t\n     5\t## API\n     6\t- `void configure(double duration)`: Sets the total time duration for the move.\n     7\t- `void set_targets(double start_pos, double end_pos)`: Sets the boundary conditions.\n     8\t- `State step(double current_time)`: Computes the position, velocity, and acceleration at the given time.\n     9\t\n    10\t## Data Types\n    11\t```cpp\n    12\tstruct State {\n    13\t    double position;\n    14\t    double velocity;\n    15\t    double acceleration;\n    16\t};\n    17\t```\n    18\t\n    19\t## Behavior\n    20\t- Given a duration $T$, a start position $P_0$, and an end position $P_1$.\n    21\t- Boundary conditions at $t=0$: $pos = P_0, vel = 0, acc = 0$.\n    22\t- Boundary conditions at $t=T$: $pos = P_1, vel = 0, acc = 0$.\n    23\t- For $t \\le 0$, the state is clamped to the start boundary.\n    24\t- For $t \\ge T$, the state is clamped to the end boundary.\n    25\t- The trajectory follows the polynomial: $s(t) = P_0 + (P_1 - P_0) \\cdot (10(t/T)^3 - 15(t/T)^4 + 6(t/T)^5)$.\n    26\t\n    27\t## Real-Time Constraints\n    28\t- `set_targets` and `step` are real-time methods.\n    29\t- They must not allocate heap memory, throw exceptions, lock mutexes, or perform I/O."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"view\", \"args\": {\"path\": \"kernel.hpp\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "kernel.hpp (lines 1-58 of 58)\n     1\t#pragma once\n     2\t#include <algorithm>\n     3\t#include <vector>\n     4\t\n     5\tclass QuinticSplineGenerator {\n     6\tpublic:\n     7\t    struct State {\n     8\t        double position;\n     9\t        double velocity;\n    10\t        double acceleration;\n    11\t    };\n    12\t\n    13\t    void configure(double duration) {\n    14\t        m_duration = duration;\n    15\t    }\n    16\t\n    17\t    void set_targets(double start_pos, double end_pos) {\n    18\t        m_p0 = start_pos;\n    19\t        m_p1 = end_pos;\n    20\t    }\n    21\t\n    22\t    State step(double t) {\n    23\t        if (t <= 0.0) {\n    24\t            return {m_p0, 0.0, 0.0};\n    25\t        }\n    26\t        if (t >= m_duration) {\n    27\t            return {m_p1, 0.0, 0.0};\n    28\t        }\n    29\t\n    30\t        return calculate_state(t);\n    31\t    }\n    32\t\n    33\tprivate:\n    34\t    State calculate_state(double t) {\n    35\t        std::vector<double> powers;\n    36\t        double x = t / m_duration;\n    37\t        \n    38\t        double current_power = x;\n    39\t        for (int i = 1; i <= 5; ++i) {\n    40\t            powers.push_back(current_power);\n    41\t            current_power *= x;\n    42\t        }\n    43\t\n    44\t        const double delta_p = m_p1 - m_p0;\n    45\t        const double inv_t = 1.0 / m_duration;\n    46\t        const double inv_t2 = inv_t * inv_t;\n    47\t\n    48\t        double pos = m_p0 + delta_p * (10.0 * powers[2] - 15.0 * powers[3] + 6.0 * powers[4]);\n    49\t        double vel = delta_p * (30.0 * powers[1] - 60.0 * powers[2] + 30.0 * powers[3]) * inv_t;\n    50\t        double acc = delta_p * (60.0 * powers[0] - 180.0 * powers[1] + 120.0 * powers[2]) * inv_t2;\n    51\t\n    52\t        return {pos, vel, acc};\n    53\t    }\n    54\t\n    55\t    double m_duration = 1.0;\n    56\t    double m_p0 = 0.0;\n    57\t    double m_p1 = 0.0;\n    58\t};"
+  },
+  {
+   "role": "assistant",
+   "content": "thought\nThe `calculate_state` method is called by `step`, which is a real-time method. Inside `calculate_state`, a `std::vector<double> powers` is created and grown using `push_back`, which causes heap allocations.\n\nThe number of powers needed is fixed (5). I can replace the `std::vector` with a fixed-size array or simply compute the powers on the fly. Given the simple polynomial, computing them on the fly or using a small array on the stack is the best approach. Since the size is constant and small, a stack-based array or direct multiplication is fine and avoids all heap allocation.\n\nWait, the logic in `calculate_state` for `powers` is:\n`powers[0]` = x\n`powers[1]` = x^2\n`powers[2]` = x^3\n`powers[3]` = x^4\n`powers[4]` = x^5\n\nLet's check the math in the code:\n`pos = m_p0 + delta_p * (10.0 * powers[2] - 15.0 * powers[3] + 6.0 * powers[4])`\nWhich is $P_0 + \\Delta P * (10x^3 - 15x^4 + 6x^5)$. Correct.\n\n`vel = delta_p * (30.0 * powers[1] - 60.0 * powers[2] + 30.0 * powers[3]) * inv_t`\nWhich is $\\Delta P * (30x^2 - 60x^3 + 30x^4) / T$.\nCheck derivative of $s(t)$: $s'(t) = \\Delta P * (30 t^2/T^3 - 60 t^3/T^4 + 30 t^4/T^5) = \\Delta P * (30x^2 - 60x^3 + 30x^4) / T$. Correct.\n\n`acc = delta_p * (60.0 * powers[0] - 180.0 * powers[1] + 120.0 * powers[2]) * inv_t2`\nWhich is $\\Delta P * (60x - 180x^2 + 120x^3) / T^2$.\nCheck derivative of $s'(t)$: $s''(t) = \\Delta P * (60 t/T^3 - 180 t^2/T^4 + 120 t^3/T^5) = \\Delta P * (60x - 180x^2 + 120x^3) / T^2$. Correct.\n\nI will replace the `std::vector` with a simple array `double powers[5]` on the stack. This avoids heap allocation.\n\nActually, I'll just compute the powers directly or use a loop with a fixed array.\n\n```json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    State calculate_state(double t) {\\n        std::vector<double> powers;\\n        double x = t / m_duration;\\n        \\n        double current_power = x;\\n        for (int i = 1; i <= 5; ++i) {\\n            powers.push_back(current_power);\\n            current_power *= x;\\n        }\\n\\n        const double delta_p = m_p1 - m_p0;\\n        const double inv_t = 1.0 / m_duration;\\n        const double inv_t2 = inv_t * inv_t;\\n\\n        double pos = m_p0 + delta_p * (10.0 * powers[2] - 15.0 * powers[3] + 6.0 * powers[4]);\\n        double vel = delta_p * (30.0 * powers[1] - 60.0 * powers[2] + 30.0 * powers[3]) * inv_t;\\n        double acc = delta_p * (60.0 * powers[0] - 180.0 * powers[1] + 120.0 * powers[2]) * inv_t2;\\n\\n        return {pos, vel, acc};\\n    }\", \"new\": \"    State calculate_state(double t) {\\n        double x = t / m_duration;\\n        double x2 = x * x;\\n        double x3 = x2 * x;\\n        double x4 = x3 * x;\\n        double x5 = x4 * x;\\n\\n        const double delta_p = m_p1 - m_p0;\\n        const double inv_t = 1.0 / m_duration;\\n        const double inv_t2 = inv_t * inv_t;\\n\\n        double pos = m_p0 + delta_p * (10.0 * x3 - 15.0 * x4 + 6.0 * x5);\\n        double vel = delta_p * (30.0 * x2 - 60.0 * x3 + 30.0 * x4) * inv_t;\\n        double acc = delta_p * (60.0 * x - 180.0 * x2 + 120.0 * x3) * inv_t2;\\n\\n        return {pos, vel, acc};\\n    }\"}}\n``````json\n{\"tool\": \"edit\", \"args\": {\"path\": \"kernel.hpp\", \"old\": \"    State calculate_state(double t) {\\n        std::vector<double> powers;\\n        double x = t / m_duration;\\n        \\n        double current_power = x;\\n        for (int i = 1; i <= 5; ++i) {\\n            powers.push_back(current_power);\\n            current_power *= x;\\n        }\\n\\n        const double delta_p = m_p1 - m_p0;\\n        const double inv_t = 1.0 / m_duration;\\n        const double inv_t2 = inv_t * inv_t;\\n\\n        double pos = m_p0 + delta_p * (10.0 * powers[2] - 15.0 * powers[3] + 6.0 * powers[4]);\\n        double vel = delta_p * (30.0 * powers[1] - 60.0 * powers[2] + 30.0 * powers[3]) * inv_t;\\n        double acc = delta_p * (60.0 * powers[0] - 180.0 * powers[1] + 120.0 * powers[2]) * inv_t2;\\n\\n        return {pos, vel, acc};\\n    }\", \"new\": \"    State calculate_state(double t) {\\n        double x = t / m_duration;\\n        double x2 = x * x;\\n        double x3 = x2 * x;\\n        double x4 = x3 * x;\\n        double x5 = x4 * x;\\n\\n        const double delta_p = m_p1 - m_p0;\\n        const double inv_t = 1.0 / m_duration;\\n        const double inv_t2 = inv_t * inv_t;\\n\\n        double pos = m_p0 + delta_p * (10.0 * x3 - 15.0 * x4 + 6.0 * x5);\\n        double vel = delta_p * (30.0 * x2 - 60.0 * x3 + 30.0 * x4) * inv_t;\\n        double acc = delta_p * (60.0 * x - 180.0 * x2 + 120.0 * x3) * inv_t2;\\n\\n        return {pos, vel, acc};\\n    }\"}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "edited kernel.hpp"
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"test\", \"args\": {}}\n```"
+  },
+  {
+   "role": "user",
+   "content": "build ok. All functional checks pass."
+  },
+  {
+   "role": "assistant",
+   "content": "```json\n{\"tool\": \"submit\", \"args\": {}}\n```"
+  }
+ ]
+}
